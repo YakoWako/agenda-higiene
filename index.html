@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b5cab" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Agenda Higiene</title>
+  <style>
+    :root{
+      --navy:#0b2f5b;--blue:#1473e6;--blue-soft:#eaf4ff;--bg:#f5f8fc;--card:#fff;--line:#dbe5f0;
+      --text:#17324d;--muted:#667b91;--yellow:#f6b800;--yellow-bg:#fff6ce;--red:#e53935;--red-bg:#ffe4e4;
+      --green:#1e9f55;--green-bg:#dcf6e7;--shadow:0 8px 26px rgba(24,57,93,.10);--radius:18px;
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    button,input,select,textarea{font:inherit} button{cursor:pointer}.hidden{display:none!important}.muted{color:var(--muted)}
+    .topbar{position:sticky;top:0;z-index:30;background:linear-gradient(135deg,#0b4278,#0b5cab);color:#fff;padding:12px 16px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+    .topbar-inner{max-width:1280px;margin:auto;display:flex;align-items:center;gap:12px}.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.1px;min-width:0}.brand-mark{width:39px;height:39px;border-radius:12px;background:#fff;color:#0b5cab;display:grid;place-items:center;font-weight:900}.brand small{display:block;font-weight:500;opacity:.78}.top-actions{margin-left:auto;display:flex;gap:8px}.icon-btn{border:0;border-radius:12px;background:rgba(255,255,255,.14);color:#fff;min-width:42px;height:42px;padding:0 12px;position:relative}.badge-count{position:absolute;top:-5px;right:-4px;background:#ef3340;color:#fff;border:2px solid #0b5cab;border-radius:999px;min-width:21px;height:21px;font-size:11px;display:grid;place-items:center;font-weight:800}
+    .shell{max-width:1280px;margin:auto;padding:16px}.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.nav button{border:1px solid var(--line);background:#fff;border-radius:14px;padding:11px 8px;color:var(--navy);font-weight:700;box-shadow:0 3px 10px rgba(20,60,100,.04)}.nav button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .section{display:none}.section.active{display:block}.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 16px}.hero h1{font-size:clamp(22px,4vw,34px);margin:0;color:var(--navy)}.hero p{margin:4px 0 0;color:var(--muted)}
+    .grid{display:grid;gap:14px}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}.card-title{display:flex;align-items:center;gap:9px;font-weight:800;color:var(--navy);margin-bottom:10px}.num{width:30px;height:30px;border-radius:10px;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center;font-weight:900}.field{display:grid;gap:6px;margin:10px 0}.field label{font-size:12px;font-weight:800;color:#4d6580;text-transform:uppercase;letter-spacing:.35px}.field input,.field select,.field textarea{width:100%;border:1px solid #cbd9e7;border-radius:11px;padding:11px 12px;background:#fff;color:var(--text);outline:none}.field input:focus,.field select:focus,.field textarea:focus{border-color:#68a8eb;box-shadow:0 0 0 3px #e2f0ff}.field textarea{min-height:90px;resize:vertical}.hint{font-size:12px;color:var(--muted);line-height:1.4}
+    .upload-zone{border:1.5px dashed #a9bfd6;border-radius:14px;padding:14px;text-align:center;background:#fbfdff}.upload-zone input{display:none}.upload-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.secondary,.primary,.danger,.success{border:0;border-radius:11px;padding:10px 14px;font-weight:800}.primary{background:var(--blue);color:#fff}.secondary{background:#eef4fa;color:var(--navy)}.danger{background:var(--red);color:#fff}.success{background:var(--green);color:#fff}.wide{width:100%}.processing{display:flex;gap:10px;align-items:center;margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff2f5;color:#b11b50;font-size:13px;font-weight:700}.spinner{width:18px;height:18px;border-radius:50%;border:3px solid #ffd2df;border-top-color:#d81b60;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .generated{margin-top:16px}.context-head{position:sticky;top:67px;z-index:15;background:#eef6ff;border:1px solid #b8d7fa;border-radius:14px;padding:10px 13px;display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px;box-shadow:0 4px 12px rgba(24,72,120,.08)}.context-head strong{color:var(--navy)}.context-head .date{white-space:nowrap;font-weight:800;color:#315d87}.form-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+    .status-pill,.alert-pill,.assign-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;letter-spacing:.2px;white-space:nowrap}.s-received{background:#dfeeff;color:#1265c6}.s-assigned{background:var(--yellow-bg);color:#9c7100}.s-executed{background:var(--green-bg);color:#117541}.s-closed{background:#12874a;color:#fff}.urg-proximo{background:var(--yellow-bg);color:#a07000}.urg-critico{background:var(--red-bg);color:#bf2020}.urg-vencido{background:var(--green-bg);color:#117541}.a-assigned{background:var(--green-bg);color:#117541}.a-unassigned{background:var(--red-bg);color:#bf2020}
+    .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}.search{flex:1;min-width:220px;position:relative}.search input{width:100%;padding:12px 14px 12px 38px;border:1px solid var(--line);border-radius:13px;background:#fff}.search span{position:absolute;left:13px;top:10px;color:#8094aa}.event-list{display:grid;gap:10px}.event-card{display:grid;grid-template-columns:1fr auto;gap:10px;background:#fff;border:1px solid var(--line);border-left:5px solid #97a9bb;border-radius:15px;padding:13px 14px;box-shadow:0 4px 14px rgba(31,70,108,.06);cursor:pointer}.event-card:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(31,70,108,.10)}.event-main strong{font-size:15px;color:var(--navy)}.event-meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:5px}.event-chips{display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap}.empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed #b9c9d9;border-radius:16px;background:#fff}.today-grid{display:grid;grid-template-columns:1.55fr .9fr;gap:14px}.alerts-card{background:#fff;border:1px solid #f2c0c0;border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.alerts-head{background:#fff0f1;color:#bf2031;padding:13px 15px;font-weight:900;display:flex;align-items:center;justify-content:space-between}.alert-row{padding:12px 14px;border-top:1px solid #edf1f5;display:grid;grid-template-columns:1fr auto;gap:8px}.alert-row strong{color:var(--navy)}.alert-sub{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.rule-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.rule{border-radius:12px;padding:10px;font-size:12px;background:#f7f9fc;border:1px solid var(--line)}
+    .drawer-backdrop{position:fixed;inset:0;background:rgba(8,27,45,.4);z-index:50;display:none}.drawer-backdrop.open{display:block}.drawer{position:fixed;right:0;top:0;bottom:0;width:min(760px,100%);background:#f8fbff;z-index:51;transform:translateX(101%);transition:.22s ease;overflow:auto;box-shadow:-14px 0 40px rgba(0,0,0,.18)}.drawer.open{transform:none}.drawer-top{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:12px 14px;display:flex;align-items:center;gap:10px;z-index:5}.drawer-top button{border:0;background:#eef4fa;border-radius:11px;width:38px;height:38px}.drawer-body{padding:14px}.readonly-mask{opacity:.75;pointer-events:none}.people-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.person-check{border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:#fff;display:flex;align-items:center;gap:8px;font-size:13px}.commit-row{display:grid;grid-template-columns:1.4fr 1fr .85fr auto;gap:8px;align-items:center;margin-bottom:8px}.commit-row input,.commit-row select{border:1px solid #cbd9e7;border-radius:10px;padding:9px 10px;width:100%}.remove-btn{border:0;background:#ffe8e8;color:#c52626;width:36px;height:36px;border-radius:10px}.evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.evidence-item{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px;font-size:13px}.note-icon{width:38px;height:38px;border:1px solid #cbd9e7;background:#fff;border-radius:8px;display:grid;place-items:center;color:#546a80}.close-rule{margin:10px 0;padding:10px 12px;background:#fff0f0;color:#b71f1f;border:1px solid #ffcaca;border-radius:12px;font-weight:800;font-size:13px}.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(30px);opacity:0;z-index:100;background:#17324d;color:#fff;padding:11px 15px;border-radius:12px;box-shadow:var(--shadow);transition:.2s;max-width:90vw}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .modal{position:fixed;inset:0;background:rgba(8,27,45,.45);z-index:70;display:none;place-items:center;padding:16px}.modal.open{display:grid}.modal-card{width:min(640px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.25);padding:16px}.modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.modal-head button{border:0;background:#eef4fa;border-radius:10px;width:36px;height:36px}.topnote{font-size:12px;background:#eef6ff;border:1px solid #cfe4fb;color:#345f88;border-radius:12px;padding:10px 12px;margin-bottom:12px}
+    @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr)}.today-grid{grid-template-columns:1fr}.commit-row{grid-template-columns:1fr}.commit-row .remove-btn{width:100%}.nav{grid-template-columns:repeat(2,1fr)}.context-head{top:67px}}
+    @media(max-width:560px){.shell{padding:12px}.grid-2,.grid-4{grid-template-columns:1fr}.brand small{display:none}.hero{align-items:flex-start;flex-direction:column}.event-card{grid-template-columns:1fr}.event-chips{justify-content:flex-start}.people-grid{grid-template-columns:1fr}.evidence-grid{grid-template-columns:1fr}.context-head{align-items:flex-start;flex-direction:column}.rule-grid{grid-template-columns:1fr}.nav button{font-size:13px}}
+  .conn-ok{color:#117541;font-weight:800}.conn-bad{color:#bf2020;font-weight:800}.conn-warn{color:#9c7100;font-weight:800}
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><div class="brand-mark">H</div><div>Agenda Higiene<small>Control de eventos y compromisos</small></div></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="notifyBtn" title="Avisos del navegador (cuando la app está abierta)">🔔</button>
+      <button class="icon-btn" id="alertsBtn" title="Alertas">⚠️<span class="badge-count hidden" id="alertCount">0</span></button>
+      <button class="icon-btn" id="settingsBtn" title="Conexión y configuración">⚙️</button>
+    </div>
+  </div>
+</header>
+<main class="shell">
+  <nav class="nav">
+    <button data-view="daily" class="active">📅 Panel diario</button>
+    <button data-view="directory">📋 Directorio</button>
+    <button data-view="general">📊 Panel general</button>
+    <button data-view="register">➕ Nuevo registro</button>
+  </nav>
+
+  <section id="view-daily" class="section active">
+    <div class="hero"><div><h1>Panel diario</h1><p>Eventos programados para hoy y alertas activas.</p></div><div id="todayLabel" class="muted"></div></div>
+    <div class="today-grid">
+      <div class="card"><div class="card-title">📅 Eventos de hoy</div><div id="dailyList" class="event-list"></div></div>
+      <aside class="alerts-card"><div class="alerts-head"><span>🔔 Alertas de hoy</span><span id="alertCountLabel">0</span></div><div id="alertsList"></div></aside>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="card-title">⏱️ Lógica de alertas</div><div class="rule-grid"><div class="rule"><b>Más de 3 h</b><br>Sin alerta temporal.</div><div class="rule"><b>3 h antes</b><br><span class="alert-pill urg-proximo">PRÓXIMO</span> Si sigue sin asignación, se marca <span class="assign-pill a-unassigned">NO ASIGNADO</span>.</div><div class="rule"><b>1 h antes</b><br><span class="alert-pill urg-critico">CRÍTICO</span> y recordatorio aunque esté asignado.</div><div class="rule"><b>Pasó la hora</b><br><span class="alert-pill urg-vencido">VENCIDO</span>.</div><div class="rule"><b>Asignación</b><br><span class="assign-pill a-assigned">ASIGNADO</span> / <span class="assign-pill a-unassigned">NO ASIGNADO</span>.</div><div class="rule"><b>Salida</b><br>Panel + correo del administrador mediante Apps Script.</div></div></div>
+  </section>
+
+  <section id="view-directory" class="section">
+    <div class="hero"><div><h1>Directorio</h1><p>Eventos activos y editables, del más reciente al más antiguo.</p></div></div>
+    <div class="toolbar"><div class="search"><span>🔎</span><input id="directorySearch" placeholder="Buscar por tema, tipo, fecha o lugar"></div><select id="directoryFilter" style="padding:11px;border:1px solid var(--line);border-radius:12px"><option value="">Todos</option><option>RECIBIDO</option><option>ASIGNADO</option><option>EJECUTADO</option></select></div>
+    <div id="directoryList" class="event-list"></div>
+  </section>
+
+  <section id="view-general" class="section">
+    <div class="hero"><div><h1>Panel general</h1><p>Histórico de eventos cerrados. Solo lectura.</p></div></div>
+    <div class="toolbar"><div class="search"><span>🔎</span><input id="generalSearch" placeholder="Buscar en el histórico"></div></div>
+    <div id="generalList" class="event-list"></div>
+  </section>
+
+  <section id="view-register" class="section">
+    <div class="hero"><div><h1>Registro inicial</h1><p>Los cuatro datos de entrada se completan en una misma pantalla.</p></div><button class="secondary hidden" id="demoBtn">Cargar datos de demostración</button></div>
+    <div class="grid grid-4">
+      <div class="card"><div class="card-title"><span class="num">A</span>¿Quién eres tú?</div><div class="hint">Persona que registra la información.</div><div class="field"><label>Registrador</label><select id="registrador"></select></div><div class="field hidden" id="registradorOtroWrap"><label>Otro</label><input id="registradorOtro" placeholder="Escriba el nombre"></div></div>
+      <div class="card"><div class="card-title"><span class="num">B</span>Fuente</div><div class="field"><label>Origen de la convocatoria</label><select id="fuente"><option value="">Seleccione...</option><option>Correo</option><option>Gestor</option><option>WhatsApp</option><option>Verbal</option><option>Otro</option></select></div><div class="field hidden" id="fuenteOtroWrap"><label>Otra fuente</label><input id="fuenteOtro" placeholder="Especifique"></div></div>
+      <div class="card"><div class="card-title"><span class="num">C</span>Tipo de evento</div><div class="field"><label>Evento</label><select id="tipo"><option value="">Seleccione...</option><option>Agenda Alcaldía</option><option>Reunión</option><option>Avanzada</option><option>Mesa de trabajo</option><option>Capacitación</option><option>Socialización</option><option>PAP</option><option>Otro</option></select></div><div class="field hidden" id="tipoOtroWrap"><label>Otro tipo</label><input id="tipoOtro" placeholder="Especifique"></div></div>
+      <div class="card"><div class="card-title"><span class="num">D</span>Carga de datos</div><div class="upload-zone"><div class="upload-actions"><button class="secondary" id="pickFileBtn">📷 Captura / PDF</button><input id="sourceFile" type="file" accept="image/*,.pdf,application/pdf"></div><div class="hint" id="fileName" style="margin-top:8px">Sin archivo seleccionado</div></div><div class="field"><label>O pegue el texto</label><textarea id="rawText" placeholder="Pegue aquí la convocatoria si llegó como texto..."></textarea></div><button class="primary wide" id="processBtn">✨ Procesar y crear ficha</button><div id="processing" class="processing hidden"><span class="spinner"></span>Procesando OCR / IA...</div></div>
+    </div>
+
+    <div id="generatedForm" class="generated hidden">
+      <div class="context-head"><strong id="generatedHeader">Evento: —</strong><span class="date" id="generatedDate">—</span></div>
+      <div class="card">
+        <div class="card-title">🗂️ Ficha del evento</div>
+        <div class="grid grid-2">
+          <div class="field"><label>Tipo</label><input id="fTipo"></div>
+          <div class="field"><label>Tema</label><input id="fTema"></div>
+          <div class="field"><label>Fecha</label><input id="fFecha" type="date"></div>
+          <div class="field"><label>Hora</label><input id="fHora" type="time"></div>
+          <div class="field"><label>Lugar</label><input id="fLugar"></div>
+          <div class="field"><label>Convocados</label><input id="fConvocados" placeholder="Texto extraído de la convocatoria"></div>
+        </div>
+        <div class="field"><label>Asignado(s)</label><div id="newEventPeople" class="people-grid"></div></div>
+        <div class="field"><label>Estado inicial</label><div><span class="status-pill s-received">RECIBIDO</span></div><div class="hint">Se crea por defecto como RECIBIDO. Puede quedar sin asignación hasta que exista disposición del director/jefe.</div></div>
+        <div class="field"><label>Observación extraída / inicial</label><textarea id="fObservaciones"></textarea></div>
+        <div class="form-actions"><button class="secondary" id="cancelGenerated">Cancelar</button><button class="primary" id="saveNewEvent">Guardar en directorio</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-top"><button id="drawerClose">←</button><div><strong id="drawerTitle">Evento</strong><div class="muted" id="drawerSub"></div></div><div style="margin-left:auto" id="drawerAdminState"></div></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div class="modal" id="alertsModal"><div class="modal-card"><div class="modal-head"><div><h2 style="margin:0;color:var(--navy)">🔔 Alertas de hoy</h2><div class="muted">Homologadas con el Directorio</div></div><button id="alertsClose">✕</button></div><div id="alertsModalList" style="margin-top:12px"></div></div></div>
+<div class="modal" id="settingsModal"><div class="modal-card"><div class="modal-head"><div><h2 style="margin:0;color:var(--navy)">⚙️ Conexión del aplicativo</h2><div class="muted">GitHub Pages ↔ Google Apps Script ↔ Google Sheets</div></div><button id="settingsClose">✕</button></div>
+  <div class="topnote" style="margin-top:14px">La URL del backend puede quedar preconfigurada en <b>config.js</b>. La clave de acceso se guarda únicamente en este dispositivo.</div>
+  <div class="field"><label>URL del Web App de Apps Script</label><input id="backendUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+  <div class="field"><label>Clave de acceso</label><input id="accessKey" type="password" autocomplete="current-password" placeholder="Clave definida en la hoja CONFIG"></div>
+  <div id="connectionState" class="hint">Sin comprobar.</div>
+  <div class="form-actions"><button class="secondary" id="clearConnection">Borrar conexión</button><button class="primary" id="saveConnection">Guardar y comprobar</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
