@@ -193,6 +193,7 @@
     btn.disabled = false;
     btn.textContent = textoOriginal;
   }
+}
   function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
   function openEvent(id){const e=state.events.find(x=>x.id===id);if(!e)return;state.currentEventId=id;const readOnly=e.estadoAdmin==='CERRADO';$('#drawerTitle').textContent=e.tema||e.tipo||'Evento';$('#drawerSub').textContent=`${fmtDate(e.fecha)} · ${e.hora||'Sin hora'} · ${e.tipo||''}`;$('#drawerAdminState').innerHTML=adminPill(e.estadoAdmin||'RECIBIDO');$('#drawerBody').innerHTML=eventEditor(e,readOnly);$('#drawer').classList.add('open');$('#drawerBackdrop').classList.add('open');bindEventEditor(e,readOnly)}
