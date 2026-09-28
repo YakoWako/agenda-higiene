@@ -6,6 +6,7 @@
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null};
   let savingNewEvent = false;
   let savingEventChanges = false;
+  let uploadingEvidence = false;
   const LOCAL_MODE = !!(window.AGENDA_CONFIG && window.AGENDA_CONFIG.localMode);
   const MAX_UPLOAD_MB = Number(window.AGENDA_CONFIG?.maxUploadMB || 7);
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
@@ -297,9 +298,105 @@
   function bindEventEditor(e,ro){if(ro)return;$('#addCommitment').onclick=()=>{const n=$('#noCommitments');if(n)n.remove();$('#commitments').insertAdjacentHTML('beforeend',commitRow({estado:'RECIBIDO'}));bindRemoveCommitments()};bindRemoveCommitments();$('#addTextEvidence').onclick=()=>addEvidence('TEXTO');$('#addFileEvidence').onclick=()=>addEvidence('ARCHIVO');$('#saveEventChanges').onclick=()=>saveEventChanges();$$('.admin-state-btn').forEach(b=>b.onclick=()=>setAdminState(b.dataset.state));}
   function bindRemoveCommitments(){$$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row').remove())}
   function collectCommitments(){return $$('#commitments .commit-row').map(r=>({id:r.dataset.id||uid('CMP'),eventId:state.currentEventId,compromiso:r.querySelector('.c-text').value.trim(),responsable:r.querySelector('.c-resp').value,estado:r.querySelector('.c-state').value,updatedAt:new Date().toISOString()})).filter(c=>c.compromiso)}
-  async function addEvidence(kind){const e=state.events.find(x=>x.id===state.currentEventId);if(!e)return;let payload={eventId:e.id,tipo:kind,nombre:'',texto:'',dataUrl:'',mimeType:''};if(kind==='TEXTO'){payload.texto=$('#evidenceText').value.trim();payload.nombre='Nota manual';if(!payload.texto){toast('Escriba el texto de la evidencia.');return}}else{const f=$('#evidenceFile').files[0];if(!f){toast('Seleccione un archivo.');return}if(f.size>MAX_UPLOAD_MB*1024*1024){toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);return}payload.nombre=f.name;payload.mimeType=f.type;payload.dataUrl=await fileToDataURL(f);payload.tipo=f.type==='application/pdf'?'PDF':(f.type.startsWith('image/')?'CAPTURA':'ARCHIVO')}
-    try{const ev=await serverCall('uploadEvidence',payload);if(LOCAL_MODE){e.evidencias=e.evidencias||[];e.evidencias.push(ev);persistLocal();}else await refresh();openEvent(e.id);toast('Evidencia añadida.');}catch(err){console.error(err);toast('No se pudo subir la evidencia.');}
+  async function addEvidence(kind) {
+  const e = state.events.find(x => x.id === state.currentEventId);
+  if (!e) return;
+
+  if (kind === 'ARCHIVO' && uploadingEvidence) return;
+
+  let payload = {
+    eventId: e.id,
+    tipo: kind,
+    nombre: '',
+    texto: '',
+    dataUrl: '',
+    mimeType: ''
+  };
+
+  let btn = null;
+  let textoOriginal = '';
+  let dotsTimer = null;
+
+  try {
+    if (kind === 'TEXTO') {
+      payload.texto = $('#evidenceText').value.trim();
+      payload.nombre = 'Nota manual';
+
+      if (!payload.texto) {
+        toast('Escriba el texto de la evidencia.');
+        return;
+      }
+
+    } else {
+      const f = $('#evidenceFile').files[0];
+
+      if (!f) {
+        toast('Seleccione un archivo.');
+        return;
+      }
+
+      if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);
+        return;
+      }
+
+      btn = $('#addFileEvidence');
+      textoOriginal = btn.textContent;
+
+      uploadingEvidence = true;
+      btn.disabled = true;
+
+      let puntos = 0;
+
+      const actualizarTexto = () => {
+        puntos = (puntos % 3) + 1;
+        btn.textContent =
+          '📷 / PDF / Captura · Subiendo' + '.'.repeat(puntos);
+      };
+
+      actualizarTexto();
+      dotsTimer = setInterval(actualizarTexto, 450);
+
+      payload.nombre = f.name;
+      payload.mimeType = f.type;
+      payload.dataUrl = await fileToDataURL(f);
+
+      payload.tipo =
+        f.type === 'application/pdf'
+          ? 'PDF'
+          : (f.type.startsWith('image/') ? 'CAPTURA' : 'ARCHIVO');
+    }
+
+    const ev = await serverCall('uploadEvidence', payload);
+
+    if (LOCAL_MODE) {
+      e.evidencias = e.evidencias || [];
+      e.evidencias.push(ev);
+      persistLocal();
+    } else {
+      await refresh();
+    }
+
+    openEvent(e.id);
+    toast('Evidencia añadida correctamente.');
+
+  } catch (err) {
+    console.error(err);
+    toast('No se pudo subir la evidencia.');
+
+  } finally {
+    if (dotsTimer) clearInterval(dotsTimer);
+
+    if (kind === 'ARCHIVO') {
+      uploadingEvidence = false;
+
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    }
   }
+}
 async function saveEventChanges(targetState){
   if (savingEventChanges) return;
 
