@@ -7,6 +7,7 @@
   let savingNewEvent = false;
   let savingEventChanges = false;
   let uploadingEvidence = false;
+  let processingInput = false;
   const LOCAL_MODE = !!(window.AGENDA_CONFIG && window.AGENDA_CONFIG.localMode);
   const MAX_UPLOAD_MB = Number(window.AGENDA_CONFIG?.maxUploadMB || 7);
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
@@ -181,9 +182,25 @@
   function maybeNotify(rows){if(!('Notification'in window)||Notification.permission!=='granted')return;const today=todayISO();rows.forEach(({e,a})=>{const key=`notif:${today}:${e.id}:${a.urgency}:${a.assignment}`;if(localStorage.getItem(key))return;new Notification(`Agenda Higiene · ${a.urgency}`,{body:`${e.tema||e.tipo} · ${e.hora||''} · ${a.assignment}`});localStorage.setItem(key,'1')});}
 
   async function processInput(){
+    if (processingInput) return;
     const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value; const fuente=$('#fuente').value==='Otro'?$('#fuenteOtro').value.trim():$('#fuente').value; const tipo=$('#tipo').value==='Otro'?$('#tipoOtro').value.trim():$('#tipo').value;
     if(!registrador||!fuente||!tipo){toast('Complete ¿Quién eres?, Fuente y Tipo de evento.');return}
     const file=$('#sourceFile').files[0]; const rawText=$('#rawText').value.trim(); if(!file&&!rawText){toast('Cargue una captura/PDF o pegue el texto.');return} if(file&&file.size>MAX_UPLOAD_MB*1024*1024){toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);return}
+    const btn = $('#processBtn');
+const textoOriginal = btn.textContent;
+
+processingInput = true;
+btn.disabled = true;
+
+let puntos = 0;
+
+const actualizarTexto = () => {
+  puntos = (puntos % 3) + 1;
+  btn.textContent = '✨ Procesando' + '.'.repeat(puntos);
+};
+
+actualizarTexto();
+const dotsTimer = setInterval(actualizarTexto, 450);
     $('#processing').classList.remove('hidden');
     try{
       let payload={registrador,fuente,eventType:tipo,rawText,fileName:'',mimeType:'',dataUrl:''};
@@ -205,7 +222,13 @@
       }
       $('#fTipo').value=x.tipo||tipo;$('#fTema').value=x.tema||'';$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=x.lugar||'';$('#fConvocados').value=x.convocados||'';$('#fObservaciones').value=x.observaciones||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){console.error(e);toast('No se pudo procesar automáticamente. Puede completar la ficha manualmente.');$('#generatedForm').classList.remove('hidden');$('#fTipo').value=tipo;updateGeneratedHeader();}
-    finally{$('#processing').classList.add('hidden')}
+    finally{
+  clearInterval(dotsTimer);
+  processingInput = false;
+  btn.disabled = false;
+  btn.textContent = textoOriginal;
+  $('#processing').classList.add('hidden');
+}
   }
   function fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
   function normalizeDate(v){if(!v)return'';if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;const m=String(v).match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);if(!m)return'';let y=m[3];if(y.length===2)y='20'+y;return`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`}
