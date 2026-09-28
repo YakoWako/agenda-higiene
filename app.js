@@ -5,6 +5,7 @@
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null};
+  let savingNewEvent = false;
   const LOCAL_MODE = !!(window.AGENDA_CONFIG && window.AGENDA_CONFIG.localMode);
   const MAX_UPLOAD_MB = Number(window.AGENDA_CONFIG?.maxUploadMB || 7);
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
@@ -131,10 +132,66 @@
   function normalizeTime(v){if(!v)return'';const m=String(v).match(/([01]?\d|2[0-3])[:h.]([0-5]\d)/i);return m?`${m[1].padStart(2,'0')}:${m[2]}`:''}
   function updateGeneratedHeader(){$('#generatedHeader').textContent=`Evento: ${$('#fTema').value||'Sin tema'}`;$('#generatedDate').textContent=fmtDate($('#fFecha').value)}
   async function saveNewEvent(){
-    const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value;const fuente=$('#fuente').value==='Otro'?$('#fuenteOtro').value.trim():$('#fuente').value;const assigned=$$('#newEventPeople input:checked').map(x=>x.value);
-    const ev=normalizeEvent({id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador,fuente,tipo:$('#fTipo').value.trim(),tema:$('#fTema').value.trim(),fecha:$('#fFecha').value,hora:$('#fHora').value,lugar:$('#fLugar').value.trim(),convocados:$('#fConvocados').value.trim(),asignados:assigned,estadoAdmin:'RECIBIDO',observaciones:$('#fObservaciones').value.trim(),rawText:$('#rawText').value.trim(),compromisos:[],evidencias:[]});
-    if(!ev.tema||!ev.fecha||!ev.hora){toast('Tema, fecha y hora son obligatorios.');return}
-    await serverCall('saveEventBundle',{event:ev});await refresh();resetRegister();showView('directory');toast('Evento guardado en el Directorio.');
+  if (savingNewEvent) return;
+
+  const registrador = $('#registrador').value === 'Otro'
+    ? $('#registradorOtro').value.trim()
+    : $('#registrador').value;
+
+  const fuente = $('#fuente').value === 'Otro'
+    ? $('#fuenteOtro').value.trim()
+    : $('#fuente').value;
+
+  const assigned = $$('#newEventPeople input:checked').map(x => x.value);
+
+  const ev = normalizeEvent({
+    id: uid('EVT'),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    registrador,
+    fuente,
+    tipo: $('#fTipo').value.trim(),
+    tema: $('#fTema').value.trim(),
+    fecha: $('#fFecha').value,
+    hora: $('#fHora').value,
+    lugar: $('#fLugar').value.trim(),
+    convocados: $('#fConvocados').value.trim(),
+    asignados: assigned,
+    estadoAdmin: 'RECIBIDO',
+    observaciones: $('#fObservaciones').value.trim(),
+    rawText: $('#rawText').value.trim(),
+    compromisos: [],
+    evidencias: []
+  });
+
+  if (!ev.tema || !ev.fecha || !ev.hora) {
+    toast('Tema, fecha y hora son obligatorios.');
+    return;
+  }
+
+  const btn = $('#saveNewEvent');
+  const textoOriginal = btn.textContent;
+
+  savingNewEvent = true;
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  try {
+    await serverCall('saveEventBundle', {event: ev});
+    await refresh();
+
+    resetRegister();
+    showView('directory');
+    toast('Evento guardado en el Directorio.');
+
+  } catch (err) {
+    console.error(err);
+    toast('No se pudo guardar el evento. Intente nuevamente.');
+
+  } finally {
+    savingNewEvent = false;
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
   }
   function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
