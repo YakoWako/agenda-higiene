@@ -1,4 +1,3 @@
-
 (() => {
   const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Johnny Zambrano','Jordy Zamora'];
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Navas','Jordy Zamora','Gabriel Torres'];
@@ -32,10 +31,50 @@
   function persistLocal(){if(LOCAL_MODE)localStorage.setItem('agendaHigieneData',JSON.stringify({events:state.events,assignables:state.assignables,registrars:state.registrars,config:state.config}));}
 
   function heuristicExtract(text,eventType){
-    const lines=(text||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); const get=(keys)=>{const re=new RegExp(`^(?:${keys.join('|')})\\s*[:\\-]\\s*(.+)$`,'i');for(const l of lines){const m=l.match(re);if(m)return m[1].trim()}return ''};
-    const dm=(text||'').match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/);let fecha='';if(dm){let y=dm[3];if(y.length===2)y='20'+y;fecha=`${y}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`}
-    const tm=(text||'').match(/\b([01]?\d|2[0-3])[:h.]([0-5]\d)\b/i);const hora=tm?`${tm[1].padStart(2,'0')}:${tm[2]}`:'';
-    return {tipo:eventType||get(['tipo','evento']),tema:get(['tema','asunto','motivo'])||lines[0]||'',fecha:fecha||get(['fecha']),hora:hora||get(['hora']),lugar:get(['lugar','ubicación','ubicacion','sitio']),convocados:get(['convocados','convoca','asistentes']),observaciones:get(['observaciones','nota','detalle']),rawText:text||''};
+    const raw=String(text||'').replace(/\s+/g,' ').trim();
+    const labels='tema|asunto|motivo|fecha|hora|lugar|ubicación|ubicacion|sitio|convocados|convoca|asistentes|observaciones|nota|detalle';
+
+    function field(names){
+      const re=new RegExp('\\b(?:'+names+')\\b\\s*[:\\-]?\\s*(.*?)(?=\\s*[.;]?\\s*\\b(?:'+labels+')\\b\\s*[:\\-]?|$)','i');
+      const m=raw.match(re);
+      return m?m[1].trim().replace(/[.;,\s]+$/,''):'';
+    }
+
+    const dm=raw.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/);
+    let fecha='';
+    if(dm){
+      let y=dm[3];
+      if(y.length===2)y='20'+y;
+      fecha=`${y}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+    }
+
+    const tm=raw.match(/\b([01]?\d|2[0-3])[:h.]([0-5]\d)\b/i);
+    const hora=tm?`${tm[1].padStart(2,'0')}:${tm[2]}`:'';
+
+    let tema=field('tema|asunto|motivo');
+    if(!tema){
+      const markers=[
+        /\bfecha\b\s*[:\-]?\s*\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/i,
+        /\bhora\b\s*[:\-]?\s*(?:[01]?\d|2[0-3])[:h.][0-5]\d/i,
+        /\b(?:lugar|ubicación|ubicacion|sitio)\b\s*[:\-]?/i,
+        /\b(?:convocados|convoca|asistentes)\b\s*[:\-]?/i,
+        /\b(?:observaciones|nota|detalle)\b\s*[:\-]?/i
+      ];
+      let cut=raw.length;
+      markers.forEach(re=>{const m=raw.match(re);if(m&&m.index<cut)cut=m.index;});
+      tema=raw.slice(0,cut).trim().replace(/[.;,\s]+$/,'');
+    }
+
+    return {
+      tipo:eventType||field('tipo|evento'),
+      tema,
+      fecha:fecha||field('fecha'),
+      hora:hora||field('hora'),
+      lugar:field('lugar|ubicación|ubicacion|sitio'),
+      convocados:field('convocados|convoca|asistentes'),
+      observaciones:field('observaciones|nota|detalle'),
+      rawText:raw
+    };
   }
 
   function alertInfo(e,now=new Date()){
@@ -122,7 +161,21 @@
     try{
       let payload={registrador,fuente,eventType:tipo,rawText,fileName:'',mimeType:'',dataUrl:''};
       if(file){payload.fileName=file.name;payload.mimeType=file.type;payload.dataUrl=await fileToDataURL(file);}
-      const out=await serverCall('extractDocument',payload);const x={...heuristicExtract(rawText,tipo),...(out||{})};
+      const local=heuristicExtract(rawText,tipo);
+      const out=await serverCall('extractDocument',payload);
+      const x={...local,...(out||{})};
+
+      // Cuando el usuario pega texto, los campos claramente etiquetados en ese
+      // texto tienen prioridad sobre una extracción genérica del servidor.
+      if(rawText){
+        const hasStructuredMarkers=/\b(?:fecha|hora|lugar|ubicación|ubicacion|sitio|convocados|convoca|asistentes|observaciones|nota|detalle)\b\s*[:\-]?/i.test(rawText);
+        if(hasStructuredMarkers&&local.tema)x.tema=local.tema;
+        if(local.fecha)x.fecha=local.fecha;
+        if(local.hora)x.hora=local.hora;
+        if(local.lugar)x.lugar=local.lugar;
+        if(local.convocados)x.convocados=local.convocados;
+        if(local.observaciones)x.observaciones=local.observaciones;
+      }
       $('#fTipo').value=x.tipo||tipo;$('#fTema').value=x.tema||'';$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=x.lugar||'';$('#fConvocados').value=x.convocados||'';$('#fObservaciones').value=x.observaciones||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){console.error(e);toast('No se pudo procesar automáticamente. Puede completar la ficha manualmente.');$('#generatedForm').classList.remove('hidden');$('#fTipo').value=tipo;updateGeneratedHeader();}
     finally{$('#processing').classList.add('hidden')}
@@ -132,68 +185,58 @@
   function normalizeTime(v){if(!v)return'';const m=String(v).match(/([01]?\d|2[0-3])[:h.]([0-5]\d)/i);return m?`${m[1].padStart(2,'0')}:${m[2]}`:''}
   function updateGeneratedHeader(){$('#generatedHeader').textContent=`Evento: ${$('#fTema').value||'Sin tema'}`;$('#generatedDate').textContent=fmtDate($('#fFecha').value)}
   async function saveNewEvent(){
-  if (savingNewEvent) return;
+    if(savingNewEvent)return;
 
-  const registrador = $('#registrador').value === 'Otro'
-    ? $('#registradorOtro').value.trim()
-    : $('#registrador').value;
+    const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value;
+    const fuente=$('#fuente').value==='Otro'?$('#fuenteOtro').value.trim():$('#fuente').value;
+    const assigned=$$('#newEventPeople input:checked').map(x=>x.value);
 
-  const fuente = $('#fuente').value === 'Otro'
-    ? $('#fuenteOtro').value.trim()
-    : $('#fuente').value;
+    const ev=normalizeEvent({
+      id:uid('EVT'),
+      createdAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString(),
+      registrador,
+      fuente,
+      tipo:$('#fTipo').value.trim(),
+      tema:$('#fTema').value.trim(),
+      fecha:$('#fFecha').value,
+      hora:$('#fHora').value,
+      lugar:$('#fLugar').value.trim(),
+      convocados:$('#fConvocados').value.trim(),
+      asignados:assigned,
+      estadoAdmin:'RECIBIDO',
+      observaciones:$('#fObservaciones').value.trim(),
+      rawText:$('#rawText').value.trim(),
+      compromisos:[],
+      evidencias:[]
+    });
 
-  const assigned = $$('#newEventPeople input:checked').map(x => x.value);
+    if(!ev.tema||!ev.fecha||!ev.hora){
+      toast('Tema, fecha y hora son obligatorios.');
+      return;
+    }
 
-  const ev = normalizeEvent({
-    id: uid('EVT'),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    registrador,
-    fuente,
-    tipo: $('#fTipo').value.trim(),
-    tema: $('#fTema').value.trim(),
-    fecha: $('#fFecha').value,
-    hora: $('#fHora').value,
-    lugar: $('#fLugar').value.trim(),
-    convocados: $('#fConvocados').value.trim(),
-    asignados: assigned,
-    estadoAdmin: 'RECIBIDO',
-    observaciones: $('#fObservaciones').value.trim(),
-    rawText: $('#rawText').value.trim(),
-    compromisos: [],
-    evidencias: []
-  });
+    const btn=$('#saveNewEvent');
+    const textoOriginal=btn.textContent;
+    savingNewEvent=true;
+    btn.disabled=true;
+    btn.textContent='Guardando…';
 
-  if (!ev.tema || !ev.fecha || !ev.hora) {
-    toast('Tema, fecha y hora son obligatorios.');
-    return;
+    try{
+      await serverCall('saveEventBundle',{event:ev});
+      await refresh();
+      resetRegister();
+      showView('directory');
+      toast('Evento guardado en el Directorio.');
+    }catch(err){
+      console.error(err);
+      toast('No se pudo guardar el evento. Intente nuevamente.');
+    }finally{
+      savingNewEvent=false;
+      btn.disabled=false;
+      btn.textContent=textoOriginal;
+    }
   }
-
-  const btn = $('#saveNewEvent');
-  const textoOriginal = btn.textContent;
-
-  savingNewEvent = true;
-  btn.disabled = true;
-  btn.textContent = 'Guardando…';
-
-  try {
-    await serverCall('saveEventBundle', {event: ev});
-    await refresh();
-
-    resetRegister();
-    showView('directory');
-    toast('Evento guardado en el Directorio.');
-
-  } catch (err) {
-    console.error(err);
-    toast('No se pudo guardar el evento. Intente nuevamente.');
-
-  } finally {
-    savingNewEvent = false;
-    btn.disabled = false;
-    btn.textContent = textoOriginal;
-  }
-}
   function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
   function openEvent(id){const e=state.events.find(x=>x.id===id);if(!e)return;state.currentEventId=id;const readOnly=e.estadoAdmin==='CERRADO';$('#drawerTitle').textContent=e.tema||e.tipo||'Evento';$('#drawerSub').textContent=`${fmtDate(e.fecha)} · ${e.hora||'Sin hora'} · ${e.tipo||''}`;$('#drawerAdminState').innerHTML=adminPill(e.estadoAdmin||'RECIBIDO');$('#drawerBody').innerHTML=eventEditor(e,readOnly);$('#drawer').classList.add('open');$('#drawerBackdrop').classList.add('open');bindEventEditor(e,readOnly)}
