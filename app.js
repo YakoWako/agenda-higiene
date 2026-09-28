@@ -89,12 +89,26 @@
   function adminPill(s){const c=s==='RECIBIDO'?'s-received':s==='ASIGNADO'?'s-assigned':s==='EJECUTADO'?'s-executed':'s-closed';return `<span class="status-pill ${c}">${s==='CERRADO'?'✓ ':''}${s}</span>`}
 
   async function init(){
-    $('#todayLabel').textContent=fmtNow(); $('#demoBtn').classList.toggle('hidden',!LOCAL_MODE);
-    bind();
-    fillConnectionFields();
-    if(!LOCAL_MODE && !window.AgendaApi.isConfigured()){ openSettings(); renderAll(); return; }
-    await refresh();
+  $('#todayLabel').textContent = fmtNow();
+  $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
+
+  bind();
+
+  // Carga inmediatamente las listas disponibles en el navegador.
+  // Luego Apps Script las actualiza silenciosamente desde Google Sheets.
+  fillSelectors();
+
+  fillConnectionFields();
+
+  if (!LOCAL_MODE && !window.AgendaApi.isConfigured()) {
+    openSettings();
+    renderAll();
+    return;
   }
+
+  // Sincronización con la base maestra en segundo plano.
+  refresh();
+}
   async function refresh(){
     try{const d=await serverCall('getBootstrapData');state.events=(d?.events||[]).map(normalizeEvent);state.assignables=d?.assignables?.length?d.assignables:ASSIGNABLES_DEFAULT;state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;state.config=d?.config||{};renderAll();}
     catch(e){console.error(e);const msg=e?.message||String(e);if(/ACCESO_DENEGADO|CLAVE_NO_CONFIGURADA|BACKEND_NO_CONFIGURADO/.test(msg)){setConnectionState('No se pudo autenticar la conexión.','bad');openSettings();}toast('No se pudo cargar la base. Revise la conexión.');}
