@@ -420,16 +420,15 @@ toast('Evento guardado en el Directorio.');
 
     const ev = await serverCall('uploadEvidence', payload);
 
-    if (LOCAL_MODE) {
-      e.evidencias = e.evidencias || [];
-      e.evidencias.push(ev);
-      persistLocal();
-    } else {
-      await refresh();
-    }
+e.evidencias = e.evidencias || [];
+e.evidencias.push(ev);
 
-    openEvent(e.id);
-    toast('Evidencia añadida correctamente.');
+if (LOCAL_MODE) {
+  persistLocal();
+}
+
+openEvent(e.id);
+toast('Evidencia añadida correctamente.');
 
   } catch (err) {
     console.error(err);
