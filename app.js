@@ -5,6 +5,7 @@
   const APP_TZ = 'America/Guayaquil';
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null};
   let savingNewEvent = false;
+  let savingEventChanges = false;
   const LOCAL_MODE = !!(window.AGENDA_CONFIG && window.AGENDA_CONFIG.localMode);
   const MAX_UPLOAD_MB = Number(window.AGENDA_CONFIG?.maxUploadMB || 7);
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
@@ -299,8 +300,59 @@
   async function addEvidence(kind){const e=state.events.find(x=>x.id===state.currentEventId);if(!e)return;let payload={eventId:e.id,tipo:kind,nombre:'',texto:'',dataUrl:'',mimeType:''};if(kind==='TEXTO'){payload.texto=$('#evidenceText').value.trim();payload.nombre='Nota manual';if(!payload.texto){toast('Escriba el texto de la evidencia.');return}}else{const f=$('#evidenceFile').files[0];if(!f){toast('Seleccione un archivo.');return}if(f.size>MAX_UPLOAD_MB*1024*1024){toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);return}payload.nombre=f.name;payload.mimeType=f.type;payload.dataUrl=await fileToDataURL(f);payload.tipo=f.type==='application/pdf'?'PDF':(f.type.startsWith('image/')?'CAPTURA':'ARCHIVO')}
     try{const ev=await serverCall('uploadEvidence',payload);if(LOCAL_MODE){e.evidencias=e.evidencias||[];e.evidencias.push(ev);persistLocal();}else await refresh();openEvent(e.id);toast('Evidencia añadida.');}catch(err){console.error(err);toast('No se pudo subir la evidencia.');}
   }
-  async function saveEventChanges(targetState){const e=state.events.find(x=>x.id===state.currentEventId);if(!e)return;e.tipo=$('#editTipo').value.trim();e.tema=$('#editTema').value.trim();e.fecha=$('#editFecha').value;e.hora=$('#editHora').value;e.lugar=$('#editLugar').value.trim();e.convocados=$('#editConvocados').value.trim();e.asignados=$$('.edit-assignee:checked').map(x=>x.value);e.compromisos=collectCommitments();e.observaciones=$('#editObs').value.trim();if(targetState)e.estadoAdmin=targetState;else if(e.estadoAdmin==='RECIBIDO'&&e.asignados.length)e.estadoAdmin='ASIGNADO';e.updatedAt=new Date().toISOString();try{await serverCall('saveEventBundle',{event:e});await refresh();openEvent(e.id);toast('Cambios guardados.');}catch(err){console.error(err);toast('No se pudieron guardar los cambios.');}}
-  async function setAdminState(s){const e=state.events.find(x=>x.id===state.currentEventId);if(!e)return;if(s==='CERRADO'&&!(e.evidencias||[]).length){toast('No se puede cerrar sin evidencia.');return}if(s==='CERRADO'&&!confirm('¿Cerrar este evento? Pasará al Panel general y quedará en solo lectura.'))return;await saveEventChanges(s);if(s==='CERRADO'){closeDrawer();showView('general');}}
+async function saveEventChanges(targetState){
+  if (savingEventChanges) return;
+
+  const e = state.events.find(x => x.id === state.currentEventId);
+  if (!e) return;
+
+  e.tipo = $('#editTipo').value.trim();
+  e.tema = $('#editTema').value.trim();
+  e.fecha = $('#editFecha').value;
+  e.hora = $('#editHora').value;
+  e.lugar = $('#editLugar').value.trim();
+  e.convocados = $('#editConvocados').value.trim();
+  e.asignados = $$('.edit-assignee:checked').map(x => x.value);
+  e.compromisos = collectCommitments();
+  e.observaciones = $('#editObs').value.trim();
+
+  if (targetState) {
+    e.estadoAdmin = targetState;
+  } else if (e.estadoAdmin === 'RECIBIDO' && e.asignados.length) {
+    e.estadoAdmin = 'ASIGNADO';
+  }
+
+  e.updatedAt = new Date().toISOString();
+
+  const btn = $('#saveEventChanges');
+  const textoOriginal = btn ? btn.textContent : 'Guardar cambios';
+
+  savingEventChanges = true;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+  }
+
+  try {
+    await serverCall('saveEventBundle', {event: e});
+    await refresh();
+    openEvent(e.id);
+    toast('Cambios guardados correctamente.');
+
+  } catch (err) {
+    console.error(err);
+    toast('No se pudieron guardar los cambios.');
+
+  } finally {
+    savingEventChanges = false;
+
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
+    }
+  }
+}  async function setAdminState(s){const e=state.events.find(x=>x.id===state.currentEventId);if(!e)return;if(s==='CERRADO'&&!(e.evidencias||[]).length){toast('No se puede cerrar sin evidencia.');return}if(s==='CERRADO'&&!confirm('¿Cerrar este evento? Pasará al Panel general y quedará en solo lectura.'))return;await saveEventChanges(s);if(s==='CERRADO'){closeDrawer();showView('general');}}
 
   function demoEvents(){const t=todayISO();return [
     {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'WhatsApp',tipo:'Reunión',tema:'Reunión con comunidad',fecha:t,hora:addHoursTime(0.7),lugar:'Manta',convocados:'Direcciones municipales',asignados:[],estadoAdmin:'RECIBIDO',observaciones:'',compromisos:[],evidencias:[]},
