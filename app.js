@@ -114,7 +114,18 @@
     catch(e){console.error(e);const msg=e?.message||String(e);if(/ACCESO_DENEGADO|CLAVE_NO_CONFIGURADA|BACKEND_NO_CONFIGURADO/.test(msg)){setConnectionState('No se pudo autenticar la conexión.','bad');openSettings();}toast('No se pudo cargar la base. Revise la conexión.');}
   }
   function normalizeEvent(e){return {...e,asignados:Array.isArray(e.asignados)?e.asignados:(e.asignados?String(e.asignados).split('|').filter(Boolean):[]),compromisos:Array.isArray(e.compromisos)?e.compromisos:[],evidencias:Array.isArray(e.evidencias)?e.evidencias:[]};}
+  function updateEventInState(event){
+  const updated = normalizeEvent(event);
+  const i = state.events.findIndex(x => x.id === updated.id);
 
+  if(i >= 0){
+    state.events[i] = updated;
+  } else {
+    state.events.push(updated);
+  }
+
+  return updated;
+}
   function bind(){
     $$('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
     $('#registrador').onchange=()=>$('#registradorOtroWrap').classList.toggle('hidden',$('#registrador').value!=='Otro');
@@ -239,11 +250,14 @@
     btn.textContent='Guardando…';
 
     try{
-      await serverCall('saveEventBundle',{event:ev});
-      await refresh();
-      resetRegister();
-      showView('directory');
-      toast('Evento guardado en el Directorio.');
+      const saved = await serverCall('saveEventBundle',{event:ev});
+
+updateEventInState(saved || ev);
+renderAll();
+
+resetRegister();
+showView('directory');
+toast('Evento guardado en el Directorio.');
     }catch(err){
       console.error(err);
       toast('No se pudo guardar el evento. Intente nuevamente.');
@@ -446,10 +460,13 @@ async function saveEventChanges(targetState){
   }
 
   try {
-    await serverCall('saveEventBundle', {event: e});
-    await refresh();
-    openEvent(e.id);
-    toast('Cambios guardados correctamente.');
+    const saved = await serverCall('saveEventBundle', {event: e});
+
+const updated = updateEventInState(saved || e);
+renderAll();
+
+openEvent(updated.id);
+toast('Cambios guardados correctamente.');
 
   } catch (err) {
     console.error(err);
