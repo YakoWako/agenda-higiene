@@ -88,7 +88,71 @@
   function urgencyPill(u){if(!u)return '';const c=u==='PRÓXIMO'?'urg-proximo':u==='CRÍTICO'?'urg-critico':'urg-vencido';return `<span class="alert-pill ${c}">${u}</span>`}
   function assignmentPill(a){return `<span class="assign-pill ${a==='ASIGNADO'?'a-assigned':'a-unassigned'}">${a}</span>`}
   function adminPill(s){const c=s==='RECIBIDO'?'s-received':s==='ASIGNADO'?'s-assigned':s==='EJECUTADO'?'s-executed':'s-closed';return `<span class="status-pill ${c}">${s==='CERRADO'?'✓ ':''}${s}</span>`}
+  function eventVisualState(e, now = new Date()){
+  const admin = String(e.estadoAdmin || 'RECIBIDO').toUpperCase();
 
+  if(admin === 'CERRADO') return 'CERRADO';
+  if(admin === 'EJECUTADO') return 'EJECUTADO';
+
+  const assigned = (e.asignados || []).length > 0;
+  const when = dt(e);
+
+  // La hora ya pasó, pero todavía nadie confirmó ejecución.
+  if(when && when.getTime() <= now.getTime()){
+    return 'VENCIDO';
+  }
+
+  // A 3 horas o menos y continúa sin responsable.
+  if(!assigned && when){
+    const hours = (when.getTime() - now.getTime()) / 36e5;
+
+    if(hours <= 3){
+      return 'NO ASIGNADO';
+    }
+  }
+
+  if(assigned) return 'ASIGNADO';
+
+  return 'RECIBIDO';
+}
+
+function eventStatePill(e){
+  const stateName = eventVisualState(e);
+
+  const colors = {
+    'RECIBIDO':     ['#dcecff', '#0b5cab'],
+    'NO ASIGNADO': ['#ffe3e3', '#b42318'],
+    'ASIGNADO':    ['#fff0bd', '#9a6700'],
+    'VENCIDO':     ['#e8edf2', '#43576b'],
+    'EJECUTADO':   ['#daf5e4', '#08783f'],
+    'CERRADO':     ['#148447', '#ffffff']
+  };
+
+  const [bg, color] = colors[stateName] || colors.RECIBIDO;
+
+  return `
+    <span style="
+      display:inline-flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      min-width:92px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:${bg};
+      color:${color};
+      line-height:1.05;
+      font-weight:800;
+    ">
+      <span style="
+        font-size:9px;
+        letter-spacing:.8px;
+        opacity:.72;
+        margin-bottom:3px;
+      ">EVENTO</span>
+      <span style="font-size:12px">${stateName}</span>
+    </span>`;
+}
   async function init(){
   $('#todayLabel').textContent = fmtNow();
   $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
@@ -167,7 +231,29 @@
   }
   function renderAll(){fillSelectors();renderDaily();renderDirectory();renderGeneral();renderAlerts();}
 
-  function eventCard(e,readOnly=false){const a=alertInfo(e);return `<article class="event-card" data-id="${esc(e.id)}"><div class="event-main"><strong>${esc(e.tema||e.tipo||'Evento sin tema')}</strong><div class="muted" style="margin-top:2px">${esc(e.tipo||'')}</div><div class="event-meta"><span>📅 ${fmtDate(e.fecha)}</span><span>🕐 ${esc(e.hora||'Sin hora')}</span>${e.lugar?`<span>📍 ${esc(e.lugar)}</span>`:''}</div></div><div class="event-chips">${!readOnly&&a?.urgency?urgencyPill(a.urgency):''}${!readOnly&&a?assignmentPill(a.assignment):''}${adminPill(e.estadoAdmin||'RECIBIDO')}<span>›</span></div></article>`}
+function eventCard(e,readOnly=false){
+  return `
+    <article class="event-card" data-id="${esc(e.id)}">
+      <div class="event-main">
+        <strong>${esc(e.tema||e.tipo||'Evento sin tema')}</strong>
+
+        <div class="muted" style="margin-top:2px">
+          ${esc(e.tipo||'')}
+        </div>
+
+        <div class="event-meta">
+          <span>📅 ${fmtDate(e.fecha)}</span>
+          <span>🕐 ${esc(e.hora||'Sin hora')}</span>
+          ${e.lugar ? `<span>📍 ${esc(e.lugar)}</span>` : ''}
+        </div>
+      </div>
+
+      <div class="event-chips">
+        ${eventStatePill(e)}
+        <span>›</span>
+      </div>
+    </article>`;
+}
   function attachCards(container){container.querySelectorAll('.event-card').forEach(c=>c.onclick=()=>openEvent(c.dataset.id));}
   function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>e.estadoAdmin!=='CERRADO').filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el);}
   function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>e.estadoAdmin==='CERRADO').filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados.</div>';attachCards(el);}
@@ -175,7 +261,23 @@
   function sortRecent(a,b){const av=`${a.fecha||''} ${a.hora||''}`;const bv=`${b.fecha||''} ${b.hora||''}`;return bv.localeCompare(av)}
 
   function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&e.estadoAdmin!=='CERRADO').map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
-  function alertRow(x){return `<div class="alert-row" data-id="${esc(x.e.id)}"><div><strong>${esc(x.e.tema||x.e.tipo||'Evento')}</strong> <span class="muted">${esc(x.e.hora||'')}</span><div class="alert-sub">${urgencyPill(x.a.urgency)}${assignmentPill(x.a.assignment)}</div></div><div style="align-self:center">›</div></div>`}
+function alertRow(x){
+  const e = x.e;
+
+  return `
+    <div class="alert-row" data-id="${esc(e.id)}">
+      <div>
+        <strong>${esc(e.tema || e.tipo || 'Evento')}</strong>
+        <span class="muted">${esc(e.hora || '')}</span>
+
+        <div class="alert-sub">
+          ${eventStatePill(e)}
+        </div>
+      </div>
+
+      <div style="align-self:center">›</div>
+    </div>`;
+}
   function renderAlerts(){const rows=getTodayAlerts();$('#alertCount').textContent=rows.length;$('#alertCount').classList.toggle('hidden',!rows.length);$('#alertCountLabel').textContent=rows.length;$('#alertsList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty" style="border:0">Sin alertas activas.</div>';$('#alertsModalList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty">Sin alertas activas.</div>';[$('#alertsList'),$('#alertsModalList')].forEach(el=>el.querySelectorAll('.alert-row').forEach(r=>r.onclick=()=>{closeAlerts();openEvent(r.dataset.id)}));maybeNotify(rows);}
   function openAlerts(){$('#alertsModal').classList.add('open')} function closeAlerts(){$('#alertsModal').classList.remove('open')}
   async function requestNotifications(){if(!('Notification'in window)){toast('Este navegador no admite notificaciones.');return}const p=await Notification.requestPermission();toast(p==='granted'?'Avisos del navegador activados mientras use la app.':'Permiso de notificación no concedido.');}
