@@ -153,6 +153,85 @@ function eventStatePill(e){
       <span style="font-size:12px">${stateName}</span>
     </span>`;
 }
+  function commitmentStatePill(e){
+  const commitments = Array.isArray(e.compromisos)
+    ? e.compromisos.filter(c => c && c.compromiso)
+    : [];
+
+  if (!commitments.length) return '';
+
+  const total = commitments.length;
+  const executed = commitments.filter(
+    c => String(c.estado || '').toUpperCase() === 'EJECUTADO'
+  ).length;
+
+  let labelTop = '';
+  let labelBottom = '';
+  let bg = '';
+  let color = '';
+  let minWidth = '105px';
+
+  if (total === 1) {
+    labelTop = 'COMPROMISO';
+
+    if (executed === 1) {
+      labelBottom = 'EJECUTADO';
+      bg = '#daf5e4';
+      color = '#08783f';
+    } else {
+      labelBottom = 'ASIGNADO';
+      bg = '#e8f1ff';
+      color = '#2059a6';
+    }
+
+  } else {
+    labelTop = 'COMPROMISOS';
+
+    if (executed === 0) {
+      labelBottom = 'ASIGNADOS';
+      bg = '#e8f1ff';
+      color = '#2059a6';
+
+    } else if (executed === total) {
+      labelBottom = 'EJECUTADOS';
+      bg = '#daf5e4';
+      color = '#08783f';
+
+    } else {
+      labelBottom = 'PARCIALMENTE EJECUTADOS';
+      bg = '#fff1d6';
+      color = '#9a5b00';
+      minWidth = '150px';
+    }
+  }
+
+  return `
+    <span style="
+      display:inline-flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      min-width:${minWidth};
+      padding:6px 12px;
+      border-radius:999px;
+      background:${bg};
+      color:${color};
+      line-height:1.05;
+      font-weight:800;
+      text-align:center;
+    ">
+      <span style="
+        font-size:9px;
+        letter-spacing:.7px;
+        opacity:.72;
+        margin-bottom:3px;
+      ">${labelTop}</span>
+
+      <span style="
+        font-size:${labelBottom === 'PARCIALMENTE EJECUTADOS' ? '9px' : '12px'};
+      ">${labelBottom}</span>
+    </span>`;
+}
   async function init(){
   $('#todayLabel').textContent = fmtNow();
   $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
@@ -249,9 +328,10 @@ function eventCard(e,readOnly=false){
       </div>
 
       <div class="event-chips">
-        ${eventStatePill(e)}
-        <span>›</span>
-      </div>
+  ${commitmentStatePill(e)}
+  ${eventStatePill(e)}
+  <span>›</span>
+</div>
     </article>`;
 }
   function attachCards(container){container.querySelectorAll('.event-card').forEach(c=>c.onclick=()=>openEvent(c.dataset.id));}
