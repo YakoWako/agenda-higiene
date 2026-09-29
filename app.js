@@ -68,6 +68,15 @@
       tema=raw.slice(0,cut).trim().replace(/[.;,\s]+$/,'');
     }
 
+    const urls=(raw.match(/https?:\/\/[^\s<>"']+/gi)||[])
+      .map(url=>url.replace(/[),.;]+$/,''));
+
+    const linkUbicacion=
+      urls.find(url=>/(?:maps\.app\.goo\.gl|google\.[^/]+\/maps|goo\.gl\/maps|waze\.com)/i.test(url))||'';
+
+    const linkReunion=
+      urls.find(url=>/(?:meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|webex\.com)/i.test(url))||'';
+
     return {
       tipo:eventType||field('tipo|evento'),
       tema,
@@ -76,10 +85,11 @@
       lugar:field('lugar|ubicación|ubicacion|sitio'),
       convocados:field('convocados|convoca|asistentes'),
       observaciones:field('observaciones|nota|detalle'),
+      linkReunion,
+      linkUbicacion,
       rawText:raw
     };
   }
-
   function alertInfo(e,now=new Date()){
     if(e.estadoAdmin==='CERRADO') return null; const when=dt(e); if(!when) return {urgency:null,assignment:(e.asignados||[]).length?'ASIGNADO':'NO ASIGNADO',hours:null};
     const h=(when-now)/36e5; let urgency=null; if(h<=0) urgency='VENCIDO'; else if(h<=1) urgency='CRÍTICO'; else if(h<=3) urgency='PRÓXIMO';
@@ -401,8 +411,10 @@ const dotsTimer = setInterval(actualizarTexto, 450);
         if(local.lugar)x.lugar=local.lugar;
         if(local.convocados)x.convocados=local.convocados;
         if(local.observaciones)x.observaciones=local.observaciones;
+        if(local.linkReunion)x.linkReunion=local.linkReunion;
+        if(local.linkUbicacion)x.linkUbicacion=local.linkUbicacion;
       }
-      $('#fTipo').value=x.tipo||tipo;$('#fTema').value=x.tema||'';$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=x.lugar||'';$('#fConvocados').value=x.convocados||'';$('#fObservaciones').value=x.observaciones||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
+      $('#fTipo').value=x.tipo||tipo;$('#fTema').value=x.tema||'';$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=x.lugar||'';$('#fConvocados').value=x.convocados||'';$('#fObservaciones').value=x.observaciones||'';$('#fLinkReunion').value=x.linkReunion||'';$('#fLinkUbicacion').value=x.linkUbicacion||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){console.error(e);toast('No se pudo procesar automáticamente. Puede completar la ficha manualmente.');$('#generatedForm').classList.remove('hidden');$('#fTipo').value=tipo;updateGeneratedHeader();}
     finally{
   clearInterval(dotsTimer);
@@ -415,6 +427,18 @@ const dotsTimer = setInterval(actualizarTexto, 450);
   function fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
   function normalizeDate(v){if(!v)return'';if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;const m=String(v).match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);if(!m)return'';let y=m[3];if(y.length===2)y='20'+y;return`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`}
   function normalizeTime(v){if(!v)return'';const m=String(v).match(/([01]?\d|2[0-3])[:h.]([0-5]\d)/i);return m?`${m[1].padStart(2,'0')}:${m[2]}`:''}
+  function normalizeOptionalUrl(value){
+    const raw=String(value||'').trim();
+    if(!raw)return'';
+    const candidate=/^https?:\/\//i.test(raw)?raw:`https://${raw}`;
+    try{
+      const url=new URL(candidate);
+      if(url.protocol!=='http:'&&url.protocol!=='https:')return'';
+      return url.href;
+    }catch(_){
+      return'';
+    }
+  }
   function updateGeneratedHeader(){$('#generatedHeader').textContent=`Evento: ${$('#fTema').value||'Sin tema'}`;$('#generatedDate').textContent=fmtDate($('#fFecha').value)}
   async function saveNewEvent(){
     if(savingNewEvent)return;
@@ -422,6 +446,20 @@ const dotsTimer = setInterval(actualizarTexto, 450);
     const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value;
     const fuente=$('#fuente').value==='Otro'?$('#fuenteOtro').value.trim():$('#fuente').value;
     const assigned=$$('#newEventPeople input:checked').map(x=>x.value);
+
+    const rawLinkReunion=$('#fLinkReunion').value.trim();
+    const rawLinkUbicacion=$('#fLinkUbicacion').value.trim();
+    const linkReunion=normalizeOptionalUrl(rawLinkReunion);
+    const linkUbicacion=normalizeOptionalUrl(rawLinkUbicacion);
+
+    if(rawLinkReunion&&!linkReunion){
+      toast('El enlace de reunión virtual no es válido.');
+      return;
+    }
+    if(rawLinkUbicacion&&!linkUbicacion){
+      toast('El enlace de ubicación no es válido.');
+      return;
+    }
 
     const ev=normalizeEvent({
       id:uid('EVT'),
@@ -435,6 +473,8 @@ const dotsTimer = setInterval(actualizarTexto, 450);
       hora:$('#fHora').value,
       lugar:$('#fLugar').value.trim(),
       convocados:$('#fConvocados').value.trim(),
+      linkReunion,
+      linkUbicacion,
       asignados:assigned,
       estadoAdmin:'RECIBIDO',
       observaciones:$('#fObservaciones').value.trim(),
@@ -472,7 +512,7 @@ toast('Evento guardado en el Directorio.');
       btn.textContent=textoOriginal;
     }
   }
-  function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
+  function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fLinkReunion','#fLinkUbicacion','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
 function openEvent(id){
   const e = state.events.find(x => x.id === id);
@@ -511,7 +551,15 @@ function openEvent(id){
       return `<div class="evidence-item"><b>${esc(v.tipo||'Evidencia')}</b><br>${body}</div>`;
     }).join('');
     const closedNote=ro?'<div class="card" style="margin-top:12px"><b>✓ Evento cerrado</b><div class="muted">Registro histórico de solo lectura.</div></div>':'';
-    return `      
+    const reunionUrl=normalizeOptionalUrl(e.linkReunion);
+    const ubicacionUrl=normalizeOptionalUrl(e.linkUbicacion);
+    const linkActions=(reunionUrl||ubicacionUrl)?`
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        ${reunionUrl?`<a class="secondary" href="${esc(reunionUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">🔗 Abrir reunión virtual</a>`:''}
+        ${ubicacionUrl?`<a class="secondary" href="${esc(ubicacionUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">📍 Ver ubicación</a>`:''}
+      </div>`:'';    
+    return `
+      ${linkActions}
       <div class="${ro?'readonly-mask':''}">
         <div class="card">
           <div class="card-title">🗂️ Ficha del evento</div>
@@ -522,6 +570,8 @@ function openEvent(id){
             <div class="field"><label>Hora</label><input id="editHora" type="time" value="${esc(e.hora||'')}"></div>
             <div class="field"><label>Lugar</label><input id="editLugar" value="${esc(e.lugar||'')}"></div>
             <div class="field"><label>Convocados</label><input id="editConvocados" value="${esc(e.convocados||'')}"></div>
+            <div class="field"><label>Enlace de reunión virtual · opcional</label><input id="editLinkReunion" type="url" inputmode="url" placeholder="https://meet.google.com/..." value="${esc(e.linkReunion||'')}"></div>
+            <div class="field"><label>Enlace de ubicación · opcional</label><input id="editLinkUbicacion" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/..." value="${esc(e.linkUbicacion||'')}"></div>
           </div>
           <div class="field"><label>Asignado(s)</label><div class="people-grid">${assignments}</div></div>
         </div>
@@ -721,12 +771,28 @@ async function saveEventChanges(targetState){
   const e = state.events.find(x => x.id === state.currentEventId);
   if (!e) return;
 
+  const rawLinkReunion=$('#editLinkReunion').value.trim();
+  const rawLinkUbicacion=$('#editLinkUbicacion').value.trim();
+  const linkReunion=normalizeOptionalUrl(rawLinkReunion);
+  const linkUbicacion=normalizeOptionalUrl(rawLinkUbicacion);
+
+  if(rawLinkReunion&&!linkReunion){
+    toast('El enlace de reunión virtual no es válido.');
+    return;
+  }
+  if(rawLinkUbicacion&&!linkUbicacion){
+    toast('El enlace de ubicación no es válido.');
+    return;
+  }
+
   e.tipo = $('#editTipo').value.trim();
   e.tema = $('#editTema').value.trim();
   e.fecha = $('#editFecha').value;
   e.hora = $('#editHora').value;
   e.lugar = $('#editLugar').value.trim();
   e.convocados = $('#editConvocados').value.trim();
+  e.linkReunion = linkReunion;
+  e.linkUbicacion = linkUbicacion;
   e.asignados = $$('.edit-assignee:checked').map(x => x.value);
   e.compromisos = collectCommitments();
   e.observaciones = $('#editObs').value.trim();
