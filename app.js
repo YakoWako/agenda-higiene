@@ -344,10 +344,14 @@ function eventCard(e,readOnly=false){
 </div>
     </article>`;
 }
-  function attachCards(container){container.querySelectorAll('.event-card').forEach(c=>c.onclick=()=>openEvent(c.dataset.id));}
-  function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>e.estadoAdmin!=='CERRADO').filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el);}
-  function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>e.estadoAdmin==='CERRADO').filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados.</div>';attachCards(el);}
-  function renderDaily(){const t=todayISO();const rows=state.events.filter(e=>e.fecha===t&&e.estadoAdmin!=='CERRADO').sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));const el=$('#dailyList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos programados para hoy.</div>';attachCards(el);}
+  function attachCards(container,mode='edit'){
+    container.querySelectorAll('.event-card').forEach(c=>{
+      c.onclick=()=>mode==='info'?openEventInfo(c.dataset.id):openEvent(c.dataset.id);
+    });
+  }
+  function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>e.estadoAdmin!=='CERRADO').filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
+  function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>e.estadoAdmin==='CERRADO').filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados.</div>';attachCards(el,'info');}
+  function renderDaily(){const t=todayISO();const rows=state.events.filter(e=>e.fecha===t&&e.estadoAdmin!=='CERRADO').sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));const el=$('#dailyList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos programados para hoy.</div>';attachCards(el,'info');}
   function sortRecent(a,b){const av=`${a.fecha||''} ${a.hora||''}`;const bv=`${b.fecha||''} ${b.hora||''}`;return bv.localeCompare(av)}
 
   function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&e.estadoAdmin!=='CERRADO').map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
@@ -368,7 +372,7 @@ function alertRow(x){
       <div style="align-self:center">›</div>
     </div>`;
 }
-  function renderAlerts(){const rows=getTodayAlerts();$('#alertCount').textContent=rows.length;$('#alertCount').classList.toggle('hidden',!rows.length);$('#alertCountLabel').textContent=rows.length;$('#alertsList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty" style="border:0">Sin alertas activas.</div>';$('#alertsModalList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty">Sin alertas activas.</div>';[$('#alertsList'),$('#alertsModalList')].forEach(el=>el.querySelectorAll('.alert-row').forEach(r=>r.onclick=()=>{closeAlerts();openEvent(r.dataset.id)}));maybeNotify(rows);}
+  function renderAlerts(){const rows=getTodayAlerts();$('#alertCount').textContent=rows.length;$('#alertCount').classList.toggle('hidden',!rows.length);$('#alertCountLabel').textContent=rows.length;$('#alertsList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty" style="border:0">Sin alertas activas.</div>';$('#alertsModalList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty">Sin alertas activas.</div>';[$('#alertsList'),$('#alertsModalList')].forEach(el=>el.querySelectorAll('.alert-row').forEach(r=>r.onclick=()=>{closeAlerts();openEventInfo(r.dataset.id)}));maybeNotify(rows);}
   function openAlerts(){$('#alertsModal').classList.add('open')} function closeAlerts(){$('#alertsModal').classList.remove('open')}
   async function requestNotifications(){if(!('Notification'in window)){toast('Este navegador no admite notificaciones.');return}const p=await Notification.requestPermission();toast(p==='granted'?'Avisos del navegador activados mientras use la app.':'Permiso de notificación no concedido.');}
   function maybeNotify(rows){if(!('Notification'in window)||Notification.permission!=='granted')return;const today=todayISO();rows.forEach(({e,a})=>{const key=`notif:${today}:${e.id}:${a.urgency}:${a.assignment}`;if(localStorage.getItem(key))return;new Notification(`Agenda Higiene · ${a.urgency}`,{body:`${e.tema||e.tipo} · ${e.hora||''} · ${a.assignment}`});localStorage.setItem(key,'1')});}
@@ -513,6 +517,110 @@ toast('Evento guardado en el Directorio.');
     }
   }
   function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fLinkReunion','#fLinkUbicacion','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
+
+function copyEventLink(text,label){
+  const value=String(text||'').trim();
+  if(!value)return;
+
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(value)
+      .then(()=>toast((label||'Enlace')+' copiado.'))
+      .catch(()=>fallbackCopyEventLink(value,label));
+    return;
+  }
+
+  fallbackCopyEventLink(value,label);
+}
+
+function fallbackCopyEventLink(text,label){
+  const area=document.createElement('textarea');
+  area.value=text;
+  area.setAttribute('readonly','');
+  area.style.position='fixed';
+  area.style.opacity='0';
+  document.body.appendChild(area);
+  area.select();
+
+  try{
+    document.execCommand('copy');
+    toast((label||'Enlace')+' copiado.');
+  }catch(_){
+    toast('No se pudo copiar automáticamente. Seleccione el enlace manualmente.');
+  }
+
+  area.remove();
+}
+
+function eventInfoView(e){
+  const asignados=(e.asignados||[]).filter(Boolean);
+  const reunionUrl=normalizeOptionalUrl(e.linkReunion);
+  const ubicacionUrl=normalizeOptionalUrl(e.linkUbicacion);
+
+  function infoItem(label,value){
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff">'+
+      '<div style="font-size:11px;font-weight:800;color:#667b91;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
+      '<div style="color:var(--text);line-height:1.45">'+esc(value||'—')+'</div>'+
+    '</div>';
+  }
+
+  function linkBlock(label,url,openLabel,icon){
+    return '<div class="field" style="margin-top:14px">'+
+      '<label>'+esc(label)+'</label>'+
+      '<input type="text" readonly value="'+esc(url)+'" style="user-select:text">'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<a class="secondary" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">'+icon+' '+esc(openLabel)+'</a>'+
+        '<button class="secondary copy-event-link" type="button" data-copy-link="'+esc(url)+'" data-copy-label="'+esc(label)+'">📋 Copiar enlace</button>'+
+      '</div>'+
+    '</div>';
+  }
+
+  let html='<div class="card">'+
+    '<div class="card-title">📋 Información del evento</div>'+
+    '<div class="grid grid-2">'+
+      infoItem('Tipo',e.tipo)+
+      infoItem('Fecha',fmtDate(e.fecha))+
+      infoItem('Hora',e.hora||'Sin hora')+
+      infoItem('Lugar',e.lugar)+
+      infoItem('Convocados',e.convocados)+
+      infoItem('Asignado(s)',asignados.length?asignados.join(', '):'Sin asignar')+
+    '</div>'+
+  '</div>';
+
+  if(e.observaciones){
+    html+='<div class="card" style="margin-top:12px">'+
+      '<div class="card-title">💬 Observaciones</div>'+
+      '<div style="white-space:pre-wrap;line-height:1.55">'+esc(e.observaciones)+'</div>'+
+    '</div>';
+  }
+
+  if(reunionUrl||ubicacionUrl){
+    html+='<div class="card" style="margin-top:12px">'+
+      '<div class="card-title">🔗 Enlaces del evento</div>'+
+      (reunionUrl?linkBlock('Enlace de reunión virtual',reunionUrl,'Abrir reunión','🔗'):'')+
+      (ubicacionUrl?linkBlock('Enlace de ubicación',ubicacionUrl,'Ver ubicación','📍'):'')+
+    '</div>';
+  }
+
+  return html;
+}
+
+function openEventInfo(id){
+  const e=state.events.find(x=>x.id===id);
+  if(!e)return;
+
+  state.currentEventId=id;
+  $('#drawerTitle').textContent=e.tema||e.tipo||'Evento';
+  $('#drawerSub').textContent=[e.tipo,fmtDate(e.fecha),e.hora||'Sin hora',e.lugar].filter(Boolean).join(' · ');
+  $('#drawerAdminState').innerHTML=eventStatePill(e);
+  $('#drawerBody').innerHTML=eventInfoView(e);
+
+  $('#drawer').classList.add('open');
+  $('#drawerBackdrop').classList.add('open');
+
+  $('#drawerBody .copy-event-link').forEach(btn=>{
+    btn.onclick=()=>copyEventLink(btn.dataset.copyLink,btn.dataset.copyLabel||'Enlace');
+  });
+}
 
 function openEvent(id){
   const e = state.events.find(x => x.id === id);
