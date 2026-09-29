@@ -474,8 +474,35 @@ toast('Evento guardado en el Directorio.');
   }
   function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
-  function openEvent(id){const e=state.events.find(x=>x.id===id);if(!e)return;state.currentEventId=id;const readOnly=e.estadoAdmin==='CERRADO';$('#drawerTitle').textContent=e.tema||e.tipo||'Evento';$('#drawerSub').textContent=`${fmtDate(e.fecha)} · ${e.hora||'Sin hora'} · ${e.tipo||''}`;$('#drawerAdminState').innerHTML=adminPill(e.estadoAdmin||'RECIBIDO');$('#drawerBody').innerHTML=eventEditor(e,readOnly);$('#drawer').classList.add('open');$('#drawerBackdrop').classList.add('open');bindEventEditor(e,readOnly)}
-  function closeDrawer(){$('#drawer').classList.remove('open');$('#drawerBackdrop').classList.remove('open');state.currentEventId=null}
+function openEvent(id){
+  const e = state.events.find(x => x.id === id);
+  if (!e) return;
+
+  state.currentEventId = id;
+
+  const readOnly = e.estadoAdmin === 'CERRADO';
+
+  $('#drawerTitle').textContent =
+    e.tema || e.tipo || 'Evento';
+
+  $('#drawerSub').textContent = [
+    e.tipo,
+    fmtDate(e.fecha),
+    e.hora || 'Sin hora',
+    e.lugar
+  ].filter(Boolean).join(' · ');
+
+  $('#drawerAdminState').innerHTML =
+    adminPill(e.estadoAdmin || 'RECIBIDO');
+
+  $('#drawerBody').innerHTML =
+    eventEditor(e, readOnly);
+
+  $('#drawer').classList.add('open');
+  $('#drawerBackdrop').classList.add('open');
+
+  bindEventEditor(e, readOnly);
+}  function closeDrawer(){$('#drawer').classList.remove('open');$('#drawerBackdrop').classList.remove('open');state.currentEventId=null}
   function eventEditor(e,ro){
     const assignments=state.assignables.map(n=>`<label class="person-check"><input class="edit-assignee" type="checkbox" value="${esc(n)}" ${(e.asignados||[]).includes(n)?'checked':''}>${esc(n)}</label>`).join('');
     const comps=(e.compromisos||[]).map(commitRow).join('');
@@ -484,8 +511,7 @@ toast('Evento guardado en el Directorio.');
       return `<div class="evidence-item"><b>${esc(v.tipo||'Evidencia')}</b><br>${body}</div>`;
     }).join('');
     const closedNote=ro?'<div class="card" style="margin-top:12px"><b>✓ Evento cerrado</b><div class="muted">Registro histórico de solo lectura.</div></div>':'';
-    return `
-      <div class="context-head"><strong>Evento: ${esc(e.tema||'Sin tema')}</strong><span class="date">${fmtDate(e.fecha)}</span></div>
+    return `      
       <div class="${ro?'readonly-mask':''}">
         <div class="card">
           <div class="card-title">🗂️ Ficha del evento</div>
@@ -501,20 +527,10 @@ toast('Evento guardado en el Directorio.');
         </div>
         <div class="card" style="margin-top:12px">
           <div class="card-title">🎯 Compromisos y asignaciones operativas <button class="secondary" style="margin-left:auto" id="addCommitment">＋ Añadir compromiso</button></div>
-          <div class="topnote">Cada compromiso inicia como <b style="color:#1265c6">RECIBIDO</b>. Si faltan 3 horas para el evento, continúa en RECIBIDO y no tiene responsable, el sistema puede marcarlo automáticamente como <b style="color:#bf2020">NO ASIGNADO</b> y generar alerta.</div>
           <div id="commitments">${comps||'<div class="empty" id="noCommitments">Sin compromisos registrados.</div>'}</div>
         </div>
         <div class="card" style="margin-top:12px">
-          <div class="card-title">⚙️ Estado administrativo del evento</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="secondary admin-state-btn" data-state="RECIBIDO">🔵 Recibido</button>
-            <button class="secondary admin-state-btn" data-state="ASIGNADO">🟡 Asignado</button>
-            <button class="secondary admin-state-btn" data-state="EJECUTADO">🟢 Ejecutado</button>
-            <button class="success admin-state-btn" data-state="CERRADO">✓ Cerrado</button>
-          </div>
-          <div class="close-rule">Regla: no se puede cerrar el evento sin al menos una evidencia cargada.</div>
-        </div>
-        <div class="card" style="margin-top:12px">
+          <div class="card" style="margin-top:12px">
           <div class="card-title">📎 Evidencia</div>
           <div class="evidence-grid">
             <div><div class="field"><label>Archivo</label><input id="evidenceFile" type="file" accept="image/*,.pdf,application/pdf"></div><button class="secondary wide" id="addFileEvidence">📷 / PDF / Captura · Subir</button></div>
@@ -523,12 +539,82 @@ toast('Evento guardado en el Directorio.');
           <div id="evidenceList" class="evidence-grid" style="margin-top:10px">${evid||'<div class="muted">Aún no hay evidencias.</div>'}</div>
         </div>
         <div class="card" style="margin-top:12px"><div class="card-title">💬 Observaciones</div><div class="field"><textarea id="editObs">${esc(e.observaciones||'')}</textarea></div></div>
-        <div class="form-actions"><button class="primary" id="saveEventChanges">Guardar cambios</button></div>
+        ${!ro ? `
+<div class="form-actions" style="
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+">
+  <button class="primary" id="saveEventChanges">
+    Guardar cambios
+  </button>
+
+  <div style="display:flex;gap:10px;margin-left:auto">
+    ${e.estadoAdmin !== 'EJECUTADO' ? `
+      <button class="secondary" id="markEventExecuted">
+        ✓ Marcar ejecutado
+      </button>
+    ` : ''}
+
+    <button class="success" id="closeEventBtn">
+      ✓ Cerrar evento
+    </button>
+  </div>
+</div>
+` : ''}
       </div>
       ${closedNote}`;
   }
   function commitRow(c={}){return `<div class="commit-row" data-id="${esc(c.id||uid('CMP'))}"><input class="c-text" placeholder="Compromiso" value="${esc(c.compromiso||'')}"><select class="c-resp"><option value="">Sin responsable</option>${state.assignables.map(n=>`<option ${c.responsable===n?'selected':''}>${esc(n)}</option>`).join('')}</select><select class="c-state"><option ${(!c.estado||c.estado==='RECIBIDO')?'selected':''}>RECIBIDO</option><option ${c.estado==='ASIGNADO'?'selected':''}>ASIGNADO</option><option ${c.estado==='NO ASIGNADO'?'selected':''}>NO ASIGNADO</option><option ${c.estado==='EJECUTADO'?'selected':''}>EJECUTADO</option></select><button class="remove-btn" title="Eliminar">🗑</button></div>`}
-  function bindEventEditor(e,ro){if(ro)return;$('#addCommitment').onclick=()=>{const n=$('#noCommitments');if(n)n.remove();$('#commitments').insertAdjacentHTML('beforeend',commitRow({estado:'RECIBIDO'}));bindRemoveCommitments()};bindRemoveCommitments();$('#addTextEvidence').onclick=()=>addEvidence('TEXTO');$('#addFileEvidence').onclick=()=>addEvidence('ARCHIVO');$('#saveEventChanges').onclick=()=>saveEventChanges();$$('.admin-state-btn').forEach(b=>b.onclick=()=>setAdminState(b.dataset.state));}
+function bindEventEditor(e, ro){
+  if (ro) return;
+
+  const addCommitmentBtn = $('#addCommitment');
+
+  if (addCommitmentBtn) {
+    addCommitmentBtn.onclick = () => {
+      const n = $('#noCommitments');
+
+      if (n) n.remove();
+
+      $('#commitments').insertAdjacentHTML(
+        'beforeend',
+        commitRow({estado:'RECIBIDO'})
+      );
+
+      bindRemoveCommitments();
+    };
+  }
+
+  bindRemoveCommitments();
+
+  const addTextEvidenceBtn = $('#addTextEvidence');
+  if (addTextEvidenceBtn) {
+    addTextEvidenceBtn.onclick = () => addEvidence('TEXTO');
+  }
+
+  const addFileEvidenceBtn = $('#addFileEvidence');
+  if (addFileEvidenceBtn) {
+    addFileEvidenceBtn.onclick = () => addEvidence('ARCHIVO');
+  }
+
+  const saveBtn = $('#saveEventChanges');
+  if (saveBtn) {
+    saveBtn.onclick = () => saveEventChanges();
+  }
+
+  const executedBtn = $('#markEventExecuted');
+  if (executedBtn) {
+    executedBtn.onclick = () => setAdminState('EJECUTADO');
+  }
+
+  const closeBtn = $('#closeEventBtn');
+  if (closeBtn) {
+    closeBtn.onclick = () => setAdminState('CERRADO');
+  }
+}
   function bindRemoveCommitments(){$$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row').remove())}
   function collectCommitments(){return $$('#commitments .commit-row').map(r=>({id:r.dataset.id||uid('CMP'),eventId:state.currentEventId,compromiso:r.querySelector('.c-text').value.trim(),responsable:r.querySelector('.c-resp').value,estado:r.querySelector('.c-state').value,updatedAt:new Date().toISOString()})).filter(c=>c.compromiso)}
   async function addEvidence(kind) {
