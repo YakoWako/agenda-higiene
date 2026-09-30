@@ -33,18 +33,63 @@
   };
   function persistLocal(){if(LOCAL_MODE)localStorage.setItem('agendaHigieneData',JSON.stringify({events:state.events,assignables:state.assignables,registrars:state.registrars,config:state.config}));}
 
+  function cleanNonLinkField(value){
+    return String(value||'')
+      .replace(/\b(?:enlace|link)\s+(?:de\s+)?reuni[oó]n(?:\s+virtual)?\b\s*[:\-]?/gi,' ')
+      .replace(/\b(?:enlace|link)\s+(?:de\s+)?ubicaci[oó]n\b\s*[:\-]?/gi,' ')
+      .replace(/https?:\/\/[^\s<>"']+/gi,' ')
+      .replace(/\s+/g,' ')
+      .replace(/^[\s,;:.\-]+|[\s,;:.\-]+$/g,'')
+      .trim();
+  }
+
   function heuristicExtract(text,eventType){
     const raw=String(text||'').replace(/\s+/g,' ').trim();
-    const labels='tema|asunto|motivo|fecha|hora|lugar|ubicación|ubicacion|sitio|convocados|convoca|asistentes|observaciones|nota|detalle';
 
-    function field(names){
-      const re=new RegExp('\\b(?:'+names+')\\b\\s*[:\\-]?\\s*(.*?)(?=\\s*[.;]?\\s*\\b(?:'+labels+')\\b\\s*[:\\-]?|$)','i');
-      const m=raw.match(re);
-      return m?m[1].trim().replace(/[.;,\s]+$/,''):'';
+    const labelRe=/\b(enlace\s+(?:de\s+)?reuni[oó]n(?:\s+virtual)?|link\s+(?:de\s+)?reuni[oó]n(?:\s+virtual)?|enlace\s+(?:de\s+)?ubicaci[oó]n|link\s+(?:de\s+)?ubicaci[oó]n|tema|asunto|motivo|fecha|hora|lugar|sitio|ubicaci[oó]n|convocados|convoca|asistentes|observaciones|nota|detalle|tipo|evento)\b\s*[:\-]?/gi;
+
+    const tokens=[];
+    let m;
+
+    while((m=labelRe.exec(raw))!==null){
+      const label=m[1].toLowerCase();
+
+      let key='';
+
+      if(/^(?:enlace|link)\s+(?:de\s+)?reuni[oó]n/.test(label)) key='linkReunion';
+      else if(/^(?:enlace|link)\s+(?:de\s+)?ubicaci[oó]n/.test(label)) key='linkUbicacion';
+      else if(/^(?:tema|asunto|motivo)$/.test(label)) key='tema';
+      else if(label==='fecha') key='fecha';
+      else if(label==='hora') key='hora';
+      else if(/^(?:lugar|sitio|ubicaci[oó]n)$/.test(label)) key='lugar';
+      else if(/^(?:convocados|convoca|asistentes)$/.test(label)) key='convocados';
+      else if(/^(?:observaciones|nota|detalle)$/.test(label)) key='observaciones';
+      else if(/^(?:tipo|evento)$/.test(label)) key='tipo';
+
+      tokens.push({
+        key,
+        index:m.index,
+        valueStart:labelRe.lastIndex
+      });
     }
+
+    const fields={};
+
+    tokens.forEach((token,i)=>{
+      if(!token.key||fields[token.key]) return;
+
+      const next=tokens[i+1];
+      const value=raw
+        .slice(token.valueStart,next?next.index:raw.length)
+        .trim()
+        .replace(/[.;,\s]+$/,'');
+
+      if(value) fields[token.key]=value;
+    });
 
     const dm=raw.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/);
     let fecha='';
+
     if(dm){
       let y=dm[3];
       if(y.length===2)y='20'+y;
@@ -54,42 +99,42 @@
     const tm=raw.match(/\b([01]?\d|2[0-3])[:h.]([0-5]\d)\b/i);
     const hora=tm?`${tm[1].padStart(2,'0')}:${tm[2]}`:'';
 
-    let tema=field('tema|asunto|motivo');
-    if(!tema){
-      const markers=[
-        /\bfecha\b\s*[:\-]?\s*\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/i,
-        /\bhora\b\s*[:\-]?\s*(?:[01]?\d|2[0-3])[:h.][0-5]\d/i,
-        /\b(?:lugar|ubicación|ubicacion|sitio)\b\s*[:\-]?/i,
-        /\b(?:convocados|convoca|asistentes)\b\s*[:\-]?/i,
-        /\b(?:observaciones|nota|detalle)\b\s*[:\-]?/i
-      ];
-      let cut=raw.length;
-      markers.forEach(re=>{const m=raw.match(re);if(m&&m.index<cut)cut=m.index;});
-      tema=raw.slice(0,cut).trim().replace(/[.;,\s]+$/,'');
-    }
-
     const urls=(raw.match(/https?:\/\/[^\s<>"']+/gi)||[])
       .map(url=>url.replace(/[),.;]+$/,''));
 
     const linkUbicacion=
-      urls.find(url=>/(?:maps\.app\.goo\.gl|google\.[^/]+\/maps|goo\.gl\/maps|waze\.com)/i.test(url))||'';
+      urls.find(url=>/(?:maps\.app\.goo\.gl|google\.[^/]+\/maps|goo\.gl\/maps|waze\.com)/i.test(url))
+      || fields.linkUbicacion
+      || '';
 
     const linkReunion=
-      urls.find(url=>/(?:meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|webex\.com)/i.test(url))||'';
+      urls.find(url=>/(?:meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|webex\.com)/i.test(url))
+      || fields.linkReunion
+      || '';
+
+    let tema=fields.tema||'';
+
+    if(!tema){
+      const firstStructured=tokens.find(t=>t.key&&t.key!=='tipo');
+      tema=firstStructured
+        ? raw.slice(0,firstStructured.index).trim().replace(/[.;,\s]+$/,'')
+        : raw;
+    }
 
     return {
-      tipo:eventType||field('tipo|evento'),
-      tema,
-      fecha:fecha||field('fecha'),
-      hora:hora||field('hora'),
-      lugar:field('lugar|ubicación|ubicacion|sitio'),
-      convocados:field('convocados|convoca|asistentes'),
-      observaciones:field('observaciones|nota|detalle'),
-      linkReunion,
-      linkUbicacion,
+      tipo:eventType||cleanNonLinkField(fields.tipo||''),
+      tema:cleanNonLinkField(tema),
+      fecha:fecha||cleanNonLinkField(fields.fecha||''),
+      hora:hora||cleanNonLinkField(fields.hora||''),
+      lugar:cleanNonLinkField(fields.lugar||''),
+      convocados:cleanNonLinkField(fields.convocados||''),
+      observaciones:cleanNonLinkField(fields.observaciones||''),
+      linkReunion:normalizeOptionalUrl(linkReunion),
+      linkUbicacion:normalizeOptionalUrl(linkUbicacion),
       rawText:raw
     };
   }
+
   function alertInfo(e,now=new Date()){
     if(e.estadoAdmin==='CERRADO') return null; const when=dt(e); if(!when) return {urgency:null,assignment:(e.asignados||[]).length?'ASIGNADO':'NO ASIGNADO',hours:null};
     const h=(when-now)/36e5; let urgency=null; if(h<=0) urgency='VENCIDO'; else if(h<=1) urgency='CRÍTICO'; else if(h<=3) urgency='PRÓXIMO';
@@ -304,6 +349,10 @@ function eventStatePill(e){
 
     return {
       ...e,
+      tema:cleanNonLinkField(e.tema),
+      lugar:cleanNonLinkField(e.lugar),
+      convocados:cleanNonLinkField(e.convocados),
+      observaciones:cleanNonLinkField(e.observaciones),
       asignados,
       asignacionesMeta,
       compromisos:Array.isArray(e.compromisos)?e.compromisos:[],
@@ -472,7 +521,7 @@ const dotsTimer = setInterval(actualizarTexto, 450);
         if(local.linkReunion)x.linkReunion=local.linkReunion;
         if(local.linkUbicacion)x.linkUbicacion=local.linkUbicacion;
       }
-      $('#fTipo').value=x.tipo||tipo;$('#fTema').value=x.tema||'';$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=x.lugar||'';$('#fConvocados').value=x.convocados||'';$('#fObservaciones').value=x.observaciones||'';$('#fLinkReunion').value=x.linkReunion||'';$('#fLinkUbicacion').value=x.linkUbicacion||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
+      $('#fTipo').value=cleanNonLinkField(x.tipo||tipo);$('#fTema').value=cleanNonLinkField(x.tema||'');$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=cleanNonLinkField(x.lugar||'');$('#fConvocados').value=cleanNonLinkField(x.convocados||'');$('#fObservaciones').value=cleanNonLinkField(x.observaciones||'');$('#fLinkReunion').value=normalizeOptionalUrl(x.linkReunion)||'';$('#fLinkUbicacion').value=normalizeOptionalUrl(x.linkUbicacion)||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){console.error(e);toast('No se pudo procesar automáticamente. Puede completar la ficha manualmente.');$('#generatedForm').classList.remove('hidden');$('#fTipo').value=tipo;updateGeneratedHeader();}
     finally{
   clearInterval(dotsTimer);
