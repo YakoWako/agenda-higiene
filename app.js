@@ -38,6 +38,7 @@
       .replace(/\b(?:enlace|link)\s+(?:de\s+)?reuni[oó]n(?:\s+virtual)?\b\s*[:\-]?/gi,' ')
       .replace(/\b(?:enlace|link)\s+(?:de\s+)?ubicaci[oó]n\b\s*[:\-]?/gi,' ')
       .replace(/https?:\/\/[^\s<>"']+/gi,' ')
+      .replace(/\b(?:enlace|link)(?:\s+de)?\s*$/gi,' ')
       .replace(/\s+/g,' ')
       .replace(/^[\s,;:.\-]+|[\s,;:.\-]+$/g,'')
       .trim();
@@ -657,6 +658,22 @@ toast('Evento guardado en el Directorio.');
   }
   function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fLinkReunion','#fLinkUbicacion','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
+function buildEvidenceFileName(eventDate,legend,originalName){
+  const date=String(eventDate||todayISO()).trim()||todayISO();
+
+  const cleanLegend=String(legend||'Evidencia')
+    .replace(/[\\/:*?"<>|]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(0,50);
+
+  const original=String(originalName||'').trim();
+  const extMatch=original.match(/(\.[A-Za-z0-9]{1,8})$/);
+  const ext=extMatch?extMatch[1].toLowerCase():'';
+
+  return `${date} - ${cleanLegend}${ext}`;
+}
+
 function copyEventLink(text,label){
   const value=String(text||'').trim();
   if(!value)return;
@@ -817,8 +834,19 @@ function openEvent(id){
     const assignments=state.assignables.map(n=>`<label class="person-check"><input class="edit-assignee" type="checkbox" value="${esc(n)}" ${(e.asignados||[]).includes(n)?'checked':''}>${esc(n)}</label>`).join('');
     const comps=(e.compromisos||[]).map(commitRow).join('');
     const evid=(e.evidencias||[]).map(v=>{
-      const body=v.url?`<a href="${esc(v.url)}" target="_blank">${esc(v.nombre||'Abrir archivo')}</a>`:esc(v.nombre||v.texto||'Texto registrado');
-      return `<div class="evidence-item"><b>${esc(v.tipo||'Evidencia')}</b><br>${body}</div>`;
+      if(v.url){
+        const legend=v.texto||v.nombre||'Evidencia';
+        return `<div class="evidence-item">
+          <b>${esc(v.tipo||'Evidencia')}</b><br>
+          <strong>${esc(legend)}</strong><br>
+          <a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">Abrir archivo</a>
+        </div>`;
+      }
+
+      return `<div class="evidence-item">
+        <b>${esc(v.tipo||'Evidencia')}</b><br>
+        ${esc(v.texto||v.nombre||'Texto registrado')}
+      </div>`;
     }).join('');
     const closedNote=ro?'<div class="card" style="margin-top:12px"><b>✓ Evento cerrado</b><div class="muted">Registro histórico de solo lectura.</div></div>':'';
     const {reunionUrl,ubicacionUrl}=getEventLinks(e);
@@ -852,7 +880,18 @@ function openEvent(id){
           <div class="card" style="margin-top:12px">
           <div class="card-title">📎 Evidencia</div>
           <div class="evidence-grid">
-            <div><div class="field"><label>Archivo</label><input id="evidenceFile" type="file" accept="image/*,.pdf,application/pdf"></div><button class="secondary wide" id="addFileEvidence">📷 / PDF / Captura · Subir</button></div>
+            <div>
+              <div class="field">
+                <label>Leyenda de la evidencia · máx. 50 caracteres</label>
+                <input id="evidenceLegend" type="text" maxlength="50" placeholder="Ej.: Reunión exitosa">
+                <div class="hint" id="evidenceLegendCount">0 / 50</div>
+              </div>
+              <div class="field">
+                <label>Archivo</label>
+                <input id="evidenceFile" type="file" accept="image/*,.pdf,application/pdf">
+              </div>
+              <button class="secondary wide" id="addFileEvidence">📷 / PDF / Captura · Subir</button>
+            </div>
             <div><div style="display:flex;gap:8px;align-items:center"><div class="note-icon">🗒️</div><b>Texto manual</b></div><div class="field"><textarea id="evidenceText" placeholder="Escriba aquí la evidencia o constancia manual..."></textarea></div><button class="secondary wide" id="addTextEvidence">Añadir texto como evidencia</button></div>
           </div>
           <div id="evidenceList" class="evidence-grid" style="margin-top:10px">${evid||'<div class="muted">Aún no hay evidencias.</div>'}</div>
@@ -914,6 +953,18 @@ function bindEventEditor(e, ro){
     addTextEvidenceBtn.onclick = () => addEvidence('TEXTO');
   }
 
+  const evidenceLegend=$('#evidenceLegend');
+  const evidenceLegendCount=$('#evidenceLegendCount');
+
+  if(evidenceLegend&&evidenceLegendCount){
+    const updateLegendCount=()=>{
+      evidenceLegendCount.textContent=`${evidenceLegend.value.length} / 50`;
+    };
+
+    evidenceLegend.oninput=updateLegendCount;
+    updateLegendCount();
+  }
+
   const addFileEvidenceBtn = $('#addFileEvidence');
   if (addFileEvidenceBtn) {
     addFileEvidenceBtn.onclick = () => addEvidence('ARCHIVO');
@@ -966,6 +1017,18 @@ function bindEventEditor(e, ro){
       }
 
     } else {
+      const legend=$('#evidenceLegend').value.trim();
+
+      if(!legend){
+        toast('Escriba una leyenda para la evidencia.');
+        return;
+      }
+
+      if(legend.length>50){
+        toast('La leyenda no puede superar 50 caracteres.');
+        return;
+      }
+
       const f = $('#evidenceFile').files[0];
 
       if (!f) {
@@ -995,7 +1058,8 @@ function bindEventEditor(e, ro){
       actualizarTexto();
       dotsTimer = setInterval(actualizarTexto, 450);
 
-      payload.nombre = f.name;
+      payload.texto = legend;
+      payload.nombre = buildEvidenceFileName(e.fecha,legend,f.name);
       payload.mimeType = f.type;
       payload.dataUrl = await fileToDataURL(f);
 
