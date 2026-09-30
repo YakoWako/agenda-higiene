@@ -279,12 +279,47 @@ function eventStatePill(e){
       asignacionesMeta={};
     }
 
+    let rawAsignados=Array.isArray(e?.asignados)
+      ? e.asignados
+      : (e?.asignados?String(e.asignados).split('|').filter(Boolean):[]);
+
+    const asignados=[];
+
+    rawAsignados.forEach(item=>{
+      if(item&&typeof item==='object'){
+        const nombre=String(item.nombre||item.name||'').trim();
+        if(!nombre)return;
+
+        asignados.push(nombre);
+
+        const asignadoAt=item.asignadoAt||item.assignedAt||'';
+        if(asignadoAt&&!asignacionesMeta[nombre]){
+          asignacionesMeta[nombre]=asignadoAt;
+        }
+      }else{
+        const nombre=String(item||'').trim();
+        if(nombre)asignados.push(nombre);
+      }
+    });
+
     return {
       ...e,
-      asignados:Array.isArray(e.asignados)?e.asignados:(e.asignados?String(e.asignados).split('|').filter(Boolean):[]),
+      asignados,
       asignacionesMeta,
       compromisos:Array.isArray(e.compromisos)?e.compromisos:[],
       evidencias:Array.isArray(e.evidencias)?e.evidencias:[]
+    };
+  }
+
+  function serializeEventForSave(e){
+    const meta=e.asignacionesMeta||{};
+
+    return {
+      ...e,
+      asignados:(e.asignados||[]).map(nombre=>({
+        nombre,
+        asignadoAt:meta[nombre]||''
+      }))
     };
   }
   function updateEventInState(event){
@@ -554,7 +589,7 @@ const dotsTimer = setInterval(actualizarTexto, 450);
     btn.textContent='Guardando…';
 
     try{
-      const saved = await serverCall('saveEventBundle',{event:ev});
+      const saved = await serverCall('saveEventBundle',{event:serializeEventForSave(ev)});
 
 updateEventInState(saved || ev);
 renderAll();
@@ -1015,7 +1050,7 @@ async function saveEventChanges(targetState){
   }
 
   try {
-    const saved = await serverCall('saveEventBundle', {event: e});
+    const saved = await serverCall('saveEventBundle', {event: serializeEventForSave(e)});
 
 const updated = updateEventInState(saved || e);
 renderAll();
