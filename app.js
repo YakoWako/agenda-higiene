@@ -661,6 +661,13 @@ function eventInfoView(e){
   }
 
   function linkBlock(label,url,openLabel,icon){
+    if(!url){
+      return '<div class="field" style="margin-top:14px">'+
+        '<label>'+esc(label)+'</label>'+
+        '<div style="border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#f7f9fc;color:var(--muted)">Sin enlace registrado</div>'+
+      '</div>';
+    }
+
     return '<div class="field" style="margin-top:14px">'+
       '<label>'+esc(label)+'</label>'+
       '<input type="text" readonly value="'+esc(url)+'" style="user-select:text">'+
@@ -701,13 +708,11 @@ function eventInfoView(e){
     '</div>';
   }
 
-  if(reunionUrl||ubicacionUrl){
-    html+='<div class="card" style="margin-top:12px">'+
-      '<div class="card-title">🔗 Enlaces del evento</div>'+
-      (reunionUrl?linkBlock('Enlace de reunión virtual',reunionUrl,'Abrir reunión','🔗'):'')+
-      (ubicacionUrl?linkBlock('Enlace de ubicación',ubicacionUrl,'Ver ubicación','📍'):'')+
-    '</div>';
-  }
+  html+='<div class="card" style="margin-top:12px">'+
+    '<div class="card-title">🔗 Enlaces del evento</div>'+
+    linkBlock('Enlace de reunión virtual',reunionUrl,'Abrir reunión','🔗')+
+    linkBlock('Enlace de ubicación',ubicacionUrl,'Ver ubicación','📍')+
+  '</div>';
 
   return html;
 }
@@ -785,8 +790,8 @@ function openEvent(id){
             <div class="field"><label>Hora</label><input id="editHora" type="time" value="${esc(e.hora||'')}"></div>
             <div class="field"><label>Lugar</label><input id="editLugar" value="${esc(e.lugar||'')}"></div>
             <div class="field"><label>Convocados</label><input id="editConvocados" value="${esc(e.convocados||'')}"></div>
-            <div class="field"><label>Enlace de reunión virtual · opcional</label><input id="editLinkReunion" type="url" inputmode="url" placeholder="https://meet.google.com/..." value="${esc(reunionUrl||'')}"></div>
-            <div class="field"><label>Enlace de ubicación · opcional</label><input id="editLinkUbicacion" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/..." value="${esc(ubicacionUrl||'')}"></div>
+            <div class="field"><label>Enlace de reunión virtual · opcional</label><input id="editLinkReunion" type="url" inputmode="url" placeholder="Pegue aquí el enlace de Meet, Zoom, Teams, etc." value="${esc(reunionUrl||'')}"></div>
+            <div class="field"><label>Enlace de ubicación · opcional</label><input id="editLinkUbicacion" type="url" inputmode="url" placeholder="Pegue aquí el enlace de Google Maps o Waze" value="${esc(ubicacionUrl||'')}"></div>
           </div>
           <div class="field"><label>Asignado(s)</label><div class="people-grid">${assignments}</div></div>
         </div>
