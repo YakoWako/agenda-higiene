@@ -267,7 +267,26 @@ function eventStatePill(e){
     try{const d=await serverCall('getBootstrapData');state.events=(d?.events||[]).map(normalizeEvent);state.assignables=d?.assignables?.length?d.assignables:ASSIGNABLES_DEFAULT;state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;state.config=d?.config||{};renderAll();}
     catch(e){console.error(e);const msg=e?.message||String(e);if(/ACCESO_DENEGADO|CLAVE_NO_CONFIGURADA|BACKEND_NO_CONFIGURADO/.test(msg)){setConnectionState('No se pudo autenticar la conexión.','bad');openSettings();}toast('No se pudo cargar la base. Revise la conexión.');}
   }
-  function normalizeEvent(e){return {...e,asignados:Array.isArray(e.asignados)?e.asignados:(e.asignados?String(e.asignados).split('|').filter(Boolean):[]),compromisos:Array.isArray(e.compromisos)?e.compromisos:[],evidencias:Array.isArray(e.evidencias)?e.evidencias:[]};}
+  function normalizeEvent(e){
+    let asignacionesMeta=e?.asignacionesMeta;
+
+    if(typeof asignacionesMeta==='string'){
+      try{asignacionesMeta=JSON.parse(asignacionesMeta||'{}');}
+      catch(_){asignacionesMeta={};}
+    }
+
+    if(!asignacionesMeta||typeof asignacionesMeta!=='object'||Array.isArray(asignacionesMeta)){
+      asignacionesMeta={};
+    }
+
+    return {
+      ...e,
+      asignados:Array.isArray(e.asignados)?e.asignados:(e.asignados?String(e.asignados).split('|').filter(Boolean):[]),
+      asignacionesMeta,
+      compromisos:Array.isArray(e.compromisos)?e.compromisos:[],
+      evidencias:Array.isArray(e.evidencias)?e.evidencias:[]
+    };
+  }
   function updateEventInState(event){
   const updated = normalizeEvent(event);
   const i = state.events.findIndex(x => x.id === updated.id);
@@ -443,6 +462,37 @@ const dotsTimer = setInterval(actualizarTexto, 450);
       return'';
     }
   }
+
+  function getEventLinks(e){
+    const storedReunion=normalizeOptionalUrl(e?.linkReunion);
+    const storedUbicacion=normalizeOptionalUrl(e?.linkUbicacion);
+
+    if(storedReunion&&storedUbicacion){
+      return {reunionUrl:storedReunion,ubicacionUrl:storedUbicacion};
+    }
+
+    const extracted=heuristicExtract(e?.rawText||'',e?.tipo||'');
+
+    return {
+      reunionUrl:storedReunion||normalizeOptionalUrl(extracted.linkReunion),
+      ubicacionUrl:storedUbicacion||normalizeOptionalUrl(extracted.linkUbicacion)
+    };
+  }
+
+  function formatActionTime(value){
+    if(!value)return'';
+
+    const d=new Date(value);
+    if(Number.isNaN(d.getTime()))return'';
+
+    return new Intl.DateTimeFormat('es-EC',{
+      timeZone:APP_TZ,
+      hour:'2-digit',
+      minute:'2-digit',
+      hour12:false
+    }).format(d);
+  }
+
   function updateGeneratedHeader(){$('#generatedHeader').textContent=`Evento: ${$('#fTema').value||'Sin tema'}`;$('#generatedDate').textContent=fmtDate($('#fFecha').value)}
   async function saveNewEvent(){
     if(savingNewEvent)return;
@@ -450,6 +500,10 @@ const dotsTimer = setInterval(actualizarTexto, 450);
     const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value;
     const fuente=$('#fuente').value==='Otro'?$('#fuenteOtro').value.trim():$('#fuente').value;
     const assigned=$$('#newEventPeople input:checked').map(x=>x.value);
+    const assignmentTime=new Date().toISOString();
+    const asignacionesMeta=Object.fromEntries(
+      assigned.map(nombre=>[nombre,assignmentTime])
+    );
 
     const rawLinkReunion=$('#fLinkReunion').value.trim();
     const rawLinkUbicacion=$('#fLinkUbicacion').value.trim();
@@ -480,6 +534,7 @@ const dotsTimer = setInterval(actualizarTexto, 450);
       linkReunion,
       linkUbicacion,
       asignados:assigned,
+      asignacionesMeta,
       estadoAdmin:'RECIBIDO',
       observaciones:$('#fObservaciones').value.trim(),
       rawText:$('#rawText').value.trim(),
@@ -553,13 +608,20 @@ function fallbackCopyEventLink(text,label){
 
 function eventInfoView(e){
   const asignados=(e.asignados||[]).filter(Boolean);
-  const reunionUrl=normalizeOptionalUrl(e.linkReunion);
-  const ubicacionUrl=normalizeOptionalUrl(e.linkUbicacion);
+  const asignacionesMeta=e.asignacionesMeta||{};
+  const {reunionUrl,ubicacionUrl}=getEventLinks(e);
 
   function infoItem(label,value){
     return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff">'+
       '<div style="font-size:11px;font-weight:800;color:#667b91;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
       '<div style="color:var(--text);line-height:1.45">'+esc(value||'—')+'</div>'+
+    '</div>';
+  }
+
+  function infoItemHtml(label,valueHtml){
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff">'+
+      '<div style="font-size:11px;font-weight:800;color:#667b91;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
+      '<div style="color:var(--text);line-height:1.55">'+valueHtml+'</div>'+
     '</div>';
   }
 
@@ -574,6 +636,17 @@ function eventInfoView(e){
     '</div>';
   }
 
+  const asignadosHtml=asignados.length
+    ? asignados.map(nombre=>{
+        const hora=formatActionTime(asignacionesMeta[nombre]);
+        return '<div>'+esc(nombre)+
+          (hora
+            ? ' <span style="color:var(--muted);font-size:12px;font-weight:500">('+esc(hora)+')</span>'
+            : '')+
+        '</div>';
+      }).join('')
+    : '<span class="muted">Sin asignar</span>';
+
   let html='<div class="card">'+
     '<div class="card-title">📋 Información del evento</div>'+
     '<div class="grid grid-2">'+
@@ -582,7 +655,7 @@ function eventInfoView(e){
       infoItem('Hora',e.hora||'Sin hora')+
       infoItem('Lugar',e.lugar)+
       infoItem('Convocados',e.convocados)+
-      infoItem('Asignado(s)',asignados.length?asignados.join(', '):'Sin asignar')+
+      infoItemHtml('Asignado(s)',asignadosHtml)+
     '</div>'+
   '</div>';
 
@@ -659,8 +732,7 @@ function openEvent(id){
       return `<div class="evidence-item"><b>${esc(v.tipo||'Evidencia')}</b><br>${body}</div>`;
     }).join('');
     const closedNote=ro?'<div class="card" style="margin-top:12px"><b>✓ Evento cerrado</b><div class="muted">Registro histórico de solo lectura.</div></div>':'';
-    const reunionUrl=normalizeOptionalUrl(e.linkReunion);
-    const ubicacionUrl=normalizeOptionalUrl(e.linkUbicacion);
+    const {reunionUrl,ubicacionUrl}=getEventLinks(e);
     const linkActions=(reunionUrl||ubicacionUrl)?`
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         ${reunionUrl?`<a class="secondary" href="${esc(reunionUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">🔗 Abrir reunión virtual</a>`:''}
@@ -678,8 +750,8 @@ function openEvent(id){
             <div class="field"><label>Hora</label><input id="editHora" type="time" value="${esc(e.hora||'')}"></div>
             <div class="field"><label>Lugar</label><input id="editLugar" value="${esc(e.lugar||'')}"></div>
             <div class="field"><label>Convocados</label><input id="editConvocados" value="${esc(e.convocados||'')}"></div>
-            <div class="field"><label>Enlace de reunión virtual · opcional</label><input id="editLinkReunion" type="url" inputmode="url" placeholder="https://meet.google.com/..." value="${esc(e.linkReunion||'')}"></div>
-            <div class="field"><label>Enlace de ubicación · opcional</label><input id="editLinkUbicacion" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/..." value="${esc(e.linkUbicacion||'')}"></div>
+            <div class="field"><label>Enlace de reunión virtual · opcional</label><input id="editLinkReunion" type="url" inputmode="url" placeholder="https://meet.google.com/..." value="${esc(reunionUrl||'')}"></div>
+            <div class="field"><label>Enlace de ubicación · opcional</label><input id="editLinkUbicacion" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/..." value="${esc(ubicacionUrl||'')}"></div>
           </div>
           <div class="field"><label>Asignado(s)</label><div class="people-grid">${assignments}</div></div>
         </div>
@@ -901,7 +973,26 @@ async function saveEventChanges(targetState){
   e.convocados = $('#editConvocados').value.trim();
   e.linkReunion = linkReunion;
   e.linkUbicacion = linkUbicacion;
-  e.asignados = $$('.edit-assignee:checked').map(x => x.value);
+
+  const previousAssigned=new Set(e.asignados||[]);
+  const newAssigned=$$('.edit-assignee:checked').map(x=>x.value);
+  const asignacionesMeta={...(e.asignacionesMeta||{})};
+  const assignmentTime=new Date().toISOString();
+
+  newAssigned.forEach(nombre=>{
+    if(!previousAssigned.has(nombre)){
+      asignacionesMeta[nombre]=assignmentTime;
+    }
+  });
+
+  Object.keys(asignacionesMeta).forEach(nombre=>{
+    if(!newAssigned.includes(nombre)){
+      delete asignacionesMeta[nombre];
+    }
+  });
+
+  e.asignados = newAssigned;
+  e.asignacionesMeta = asignacionesMeta;
   e.compromisos = collectCommitments();
   e.observaciones = $('#editObs').value.trim();
 
