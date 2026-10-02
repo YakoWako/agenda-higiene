@@ -4,6 +4,7 @@
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null};
+  let dailySelectedDate = '';
   let savingNewEvent = false;
   let savingEventChanges = false;
   let uploadingEvidence = false;
@@ -16,6 +17,26 @@
   const todayISO = () => new Intl.DateTimeFormat('en-CA',{timeZone:APP_TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const fmtDate = iso => { if(!iso) return 'Sin fecha'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; };
   const fmtNow = () => new Intl.DateTimeFormat('es-EC',{timeZone:APP_TZ,weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
+  function shiftISODate(iso,days){
+    const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m)return todayISO();
+    const d=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3])+days));
+    return d.toISOString().slice(0,10);
+  }
+  function formatDailyDate(iso){
+    const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m)return '';
+    const d=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),12));
+    const text=new Intl.DateTimeFormat('es-EC',{timeZone:'UTC',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d);
+    return text.charAt(0).toUpperCase()+text.slice(1);
+  }
+  function dailyRelativeLabel(iso){
+    const today=todayISO();
+    if(iso===today)return 'HOY';
+    if(iso===shiftISODate(today,1))return 'MAÑANA';
+    if(iso===shiftISODate(today,-1))return 'AYER';
+    return '';
+  }
   const dt = e => e.fecha && e.hora ? new Date(`${e.fecha}T${e.hora}:00-05:00`) : null;
   function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 
@@ -290,6 +311,7 @@ function eventStatePill(e){
 }
   async function init(){
   $('#todayLabel').textContent = fmtNow();
+  dailySelectedDate = todayISO();
   $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
 
   bind();
@@ -392,6 +414,26 @@ function eventStatePill(e){
     $('#pickFileBtn').onclick=()=>$('#sourceFile').click();$('#fTema').oninput=updateGeneratedHeader;$('#fFecha').oninput=updateGeneratedHeader; $('#sourceFile').onchange=()=>$('#fileName').textContent=$('#sourceFile').files[0]?.name||'Sin archivo seleccionado';
     $('#processBtn').onclick=processInput; $('#cancelGenerated').onclick=()=>$('#generatedForm').classList.add('hidden'); $('#saveNewEvent').onclick=saveNewEvent;
     $('#directorySearch').oninput=renderDirectory; $('#directoryFilter').onchange=renderDirectory; $('#generalSearch').oninput=renderGeneral;
+
+    $('#dailyPrevDay').onclick=()=>{
+      dailySelectedDate=shiftISODate(dailySelectedDate||todayISO(),-1);
+      renderDaily();
+    };
+    $('#dailyNextDay').onclick=()=>{
+      dailySelectedDate=shiftISODate(dailySelectedDate||todayISO(),1);
+      renderDaily();
+    };
+    $('#dailyTodayBtn').onclick=()=>{
+      dailySelectedDate=todayISO();
+      renderDaily();
+    };
+    $('#dailyDatePicker').onchange=()=>{
+      if($('#dailyDatePicker').value){
+        dailySelectedDate=$('#dailyDatePicker').value;
+        renderDaily();
+      }
+    };
+
     $('#drawerClose').onclick=closeDrawer; $('#drawerBackdrop').onclick=closeDrawer;
     $('#alertsBtn').onclick=openAlerts; $('#alertsClose').onclick=()=>$('#alertsModal').classList.remove('open'); $('#alertsModal').onclick=e=>{if(e.target===$('#alertsModal'))$('#alertsModal').classList.remove('open')};
     $('#notifyBtn').onclick=requestNotifications; $('#settingsBtn').onclick=openSettings; $('#settingsClose').onclick=closeSettings; $('#settingsModal').onclick=e=>{if(e.target===$('#settingsModal'))closeSettings()}; $('#saveConnection').onclick=saveConnection; $('#clearConnection').onclick=clearConnection; $('#demoBtn').onclick=async()=>{await serverCall('seedDemo');await refresh();toast('Datos de demostración cargados.');};
@@ -455,7 +497,36 @@ function eventCard(e,readOnly=false){
   }
   function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>e.estadoAdmin!=='CERRADO').filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
   function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>e.estadoAdmin==='CERRADO').filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados.</div>';attachCards(el,'info');}
-  function renderDaily(){const t=todayISO();const rows=state.events.filter(e=>e.fecha===t&&e.estadoAdmin!=='CERRADO').sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));const el=$('#dailyList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos programados para hoy.</div>';attachCards(el,'info');}
+  function renderDaily(){
+    const selected=dailySelectedDate||todayISO();
+    dailySelectedDate=selected;
+
+    const rows=state.events
+      .filter(e=>e.fecha===selected)
+      .sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
+
+    const label=dailyRelativeLabel(selected);
+    const formatted=formatDailyDate(selected);
+
+    $('#dailyDateTitle').textContent=formatted||fmtDate(selected);
+    $('#dailyDateBadge').textContent=label;
+    $('#dailyDatePicker').value=selected;
+
+    const title=
+      label==='HOY' ? '📅 Eventos de hoy' :
+      label==='MAÑANA' ? '📅 Eventos de mañana' :
+      label==='AYER' ? '📅 Eventos de ayer' :
+      `📅 Eventos del ${fmtDate(selected)}`;
+
+    $('#dailyEventsTitle').textContent=title;
+
+    const el=$('#dailyList');
+    el.innerHTML=rows.length
+      ? rows.map(e=>eventCard(e,true)).join('')
+      : '<div class="empty">No hay eventos programados para esta fecha.</div>';
+
+    attachCards(el,'info');
+  }
   function sortRecent(a,b){const av=`${a.fecha||''} ${a.hora||''}`;const bv=`${b.fecha||''} ${b.hora||''}`;return bv.localeCompare(av)}
 
   function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&e.estadoAdmin!=='CERRADO').map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
