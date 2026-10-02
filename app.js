@@ -17,22 +17,14 @@
   const esc = s => String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const uid = p => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
   function todayISO(){
-    const parts=new Intl.DateTimeFormat('en-US',{
-      timeZone:APP_TZ,
-      year:'numeric',
-      month:'2-digit',
-      day:'2-digit'
-    }).formatToParts(new Date());
-
-    const values={};
-    parts.forEach(p=>{
-      if(p.type!=='literal') values[p.type]=p.value;
-    });
-
-    return `${values.year}-${values.month}-${values.day}`;
+    const d=new Date();
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
   }
   const fmtDate = iso => { if(!iso) return 'Sin fecha'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; };
-  const fmtNow = () => new Intl.DateTimeFormat('es-EC',{timeZone:APP_TZ,weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
+  const fmtNow = () => new Intl.DateTimeFormat('es-EC',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
   function shiftISODate(iso,days){
     const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if(!m)return todayISO();
@@ -53,7 +45,7 @@
     if(iso===shiftISODate(today,-1))return 'AYER';
     return '';
   }
-  const dt = e => e.fecha && e.hora ? new Date(`${e.fecha}T${e.hora}:00-05:00`) : null;
+  const dt = e => e.fecha && e.hora ? new Date(`${e.fecha}T${e.hora}:00`) : null;
   function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 
   function serverCall(fn, ...args){
@@ -742,7 +734,6 @@ const dotsTimer = setInterval(actualizarTexto, 450);
     if(Number.isNaN(d.getTime()))return'';
 
     return new Intl.DateTimeFormat('es-EC',{
-      timeZone:APP_TZ,
       hour:'2-digit',
       minute:'2-digit',
       hour12:false
@@ -1583,7 +1574,7 @@ return true;
     {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'Correo',tipo:'Avanzada',tema:'Levantamiento de información',fecha:t,hora:addHoursTime(2.3),lugar:'Tarqui',convocados:'Higiene',asignados:['William Pruss'],estadoAdmin:'ASIGNADO',observaciones:'',compromisos:[],evidencias:[]},
     {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'Gestor',tipo:'Capacitación',tema:'Manejo de residuos',fecha:t,hora:addHoursTime(0.8),lugar:'Municipio',convocados:'Personal operativo',asignados:['Gabriel García'],estadoAdmin:'ASIGNADO',observaciones:'',compromisos:[],evidencias:[]}
   ].map(normalizeEvent)}
-  function addHoursTime(h){const d=new Date(Date.now()+h*36e5);return new Intl.DateTimeFormat('en-GB',{timeZone:APP_TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(d)}
+  function addHoursTime(h){const d=new Date(Date.now()+h*36e5);return new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}).format(d)}
 
   window.addEventListener('load',init);
 })();
