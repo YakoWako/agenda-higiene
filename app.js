@@ -331,6 +331,9 @@ function eventStatePill(e){
   fillSelectors();
 
   fillConnectionFields();
+  renderDaily();
+  renderAlerts();
+  applyRoleUI();
 
   if (!LOCAL_MODE && !window.AgendaApi.isConfigured()) {
     openSettings();
@@ -554,9 +557,11 @@ function eventStatePill(e){
       return;
     }
 
-    $('.section').forEach(section=>section.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(section=>{
+      section.classList.remove('active');
+    });
 
-    const target=$('#view-'+v);
+    const target=document.querySelector('#view-'+v);
     if(!target){
       toast('No se encontró el panel solicitado.');
       return;
@@ -564,7 +569,7 @@ function eventStatePill(e){
 
     target.classList.add('active');
 
-    $('.nav button').forEach(btn=>{
+    document.querySelectorAll('.nav button').forEach(btn=>{
       btn.classList.toggle('active',btn.dataset.view===v);
     });
 
@@ -1298,7 +1303,7 @@ function openEventInfo(id){
     };
   }
 
-  $('#drawerBody .copy-event-link').forEach(btn=>{
+  document.querySelectorAll('#drawerBody .copy-event-link').forEach(btn=>{
     btn.onclick=event=>{
       event.preventDefault();
       event.stopPropagation();
