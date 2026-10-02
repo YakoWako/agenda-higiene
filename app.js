@@ -267,8 +267,8 @@ function eventStatePill(e){
       color = '#08783f';
     } else {
       labelBottom = 'ASIGNADO';
-      bg = '#e5f2e9';
-      color = '#39744d';
+      bg = '#e8f1ff';
+      color = '#2059a6';
     }
 
   } else {
@@ -276,8 +276,8 @@ function eventStatePill(e){
 
     if (executed === 0) {
       labelBottom = 'ASIGNADOS';
-      bg = '#e5f2e9';
-      color = '#39744d';
+      bg = '#e8f1ff';
+      color = '#2059a6';
 
     } else if (executed === total) {
       labelBottom = 'EJECUTADOS';
