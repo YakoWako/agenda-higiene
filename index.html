@@ -140,12 +140,12 @@
 <script src="config.js?v=4"></script>
 <script src="api.js?v=4"></script>
 <script src="app.js?v=4"></script>
-<script src="roles.js?v=1"></script>
+<script src="roles.js?v=2"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
-        .register('./sw.js?v=4', { scope: './', updateViaCache: 'none' })
+        .register('./sw.js?v=5', { scope: './', updateViaCache: 'none' })
         .then(registration => registration.update())
         .catch(error => console.warn('No se pudo actualizar el Service Worker:', error));
     });
