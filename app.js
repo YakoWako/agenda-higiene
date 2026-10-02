@@ -797,41 +797,82 @@ function buildEventShareText(e){
   const {reunionUrl,ubicacionUrl}=getEventLinks(e);
 
   const lines=[
-    `AGENDA HIGIENE`,
+    `*AGENDA HIGIENE*`,
     ``,
-    `Tema: ${e.tema||e.tipo||'Evento'}`,
-    `Tipo: ${e.tipo||'—'}`,
-    `Fecha: ${fmtDate(e.fecha)}`,
-    `Hora: ${e.hora||'Sin hora'}`,
-    `Lugar: ${e.lugar||'—'}`,
-    `Convocados: ${e.convocados||'—'}`,
-    `Asignado(s): ${asignados.length ? asignados.join(', ') : 'Sin asignar'}`
+    `*Tema:* ${e.tema||e.tipo||'Evento'}`,
+    `*Tipo:* ${e.tipo||'—'}`,
+    `*Fecha:* ${fmtDate(e.fecha)}`,
+    `*Hora:* ${e.hora||'Sin hora'}`,
+    `*Lugar:* ${e.lugar||'—'}`,
+    `*Convocados:* ${e.convocados||'—'}`,
+    `*Asignado(s):* ${asignados.length ? asignados.join(', ') : 'Sin asignar'}`
   ];
 
   const visualState=eventVisualState(e);
   if(visualState){
-    lines.push(`Estado: ${visualState}`);
+    lines.push(`*Estado:* ${visualState}`);
   }
 
   if(reunionUrl){
-    lines.push(`Enlace de reunión virtual: ${reunionUrl}`);
+    lines.push(`*Enlace de reunión virtual:* ${reunionUrl}`);
   }
 
   if(ubicacionUrl){
-    lines.push(`Ubicación: ${ubicacionUrl}`);
+    lines.push(`*Ubicación:* ${ubicacionUrl}`);
   }
 
   if(e.observaciones){
-    lines.push(`Observaciones: ${e.observaciones}`);
+    lines.push(`*Observaciones:* ${e.observaciones}`);
   }
 
   return lines.join('\n');
 }
 
+function buildEventShareHtml(e){
+  const asignados=(e.asignados||[]).filter(Boolean);
+  const {reunionUrl,ubicacionUrl}=getEventLinks(e);
+  const rows=[
+    ['Tema',e.tema||e.tipo||'Evento'],
+    ['Tipo',e.tipo||'—'],
+    ['Fecha',fmtDate(e.fecha)],
+    ['Hora',e.hora||'Sin hora'],
+    ['Lugar',e.lugar||'—'],
+    ['Convocados',e.convocados||'—'],
+    ['Asignado(s)',asignados.length?asignados.join(', '):'Sin asignar']
+  ];
+
+  const visualState=eventVisualState(e);
+  if(visualState) rows.push(['Estado',visualState]);
+  if(reunionUrl) rows.push(['Enlace de reunión virtual',reunionUrl]);
+  if(ubicacionUrl) rows.push(['Ubicación',ubicacionUrl]);
+  if(e.observaciones) rows.push(['Observaciones',e.observaciones]);
+
+  return '<div><strong>AGENDA HIGIENE</strong><br><br>'+
+    rows.map(([label,value])=>
+      '<strong>'+esc(label)+':</strong> '+esc(value)
+    ).join('<br>')+
+  '</div>';
+}
+
 function copyEventSheet(e){
   const text=buildEventShareText(e);
+  const html=buildEventShareHtml(e);
 
   if(navigator.clipboard&&window.isSecureContext){
+    if(typeof ClipboardItem!=='undefined'&&navigator.clipboard.write){
+      const item=new ClipboardItem({
+        'text/plain':new Blob([text],{type:'text/plain'}),
+        'text/html':new Blob([html],{type:'text/html'})
+      });
+
+      navigator.clipboard.write([item])
+        .then(()=>toast('Ficha copiada correctamente.'))
+        .catch(()=>navigator.clipboard.writeText(text)
+          .then(()=>toast('Ficha copiada correctamente.'))
+          .catch(()=>fallbackCopyEventLink(text,'Ficha')));
+      return;
+    }
+
     navigator.clipboard.writeText(text)
       .then(()=>toast('Ficha copiada correctamente.'))
       .catch(()=>fallbackCopyEventLink(text,'Ficha'));
@@ -1067,32 +1108,38 @@ function openEvent(id){
         </div>
         <div class="card" style="margin-top:12px"><div class="card-title">💬 Observaciones</div><div class="field"><textarea id="editObs">${esc(e.observaciones||'')}</textarea></div></div>
         ${!ro ? `
-<div class="form-actions" style="
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  flex-wrap:wrap;
-">
-  <button class="primary" id="saveEventChanges">
-    Guardar cambios
+<div class="event-actions-grid">
+  ${e.estadoAdmin !== 'EJECUTADO' ? `
+    <button class="event-action-btn" id="suspendEventBtn" type="button">
+      <span>EVENTO</span>
+      <strong>SUSPENDIDO</strong>
+    </button>
+
+    <button class="event-action-btn" id="markEventExecuted" type="button">
+      <span>MARCAR</span>
+      <strong>EJECUTADO</strong>
+    </button>
+  ` : `
+    <button class="event-action-btn" type="button" disabled>
+      <span>EVENTO</span>
+      <strong>EJECUTADO</strong>
+    </button>
+
+    <button class="event-action-btn" type="button" disabled>
+      <span>ESTADO</span>
+      <strong>CONFIRMADO</strong>
+    </button>
+  `}
+
+  <button class="event-action-btn" id="saveEventChanges" type="button">
+    <span>GUARDAR</span>
+    <strong>CAMBIOS</strong>
   </button>
 
-  <div style="display:flex;gap:10px;margin-left:auto;flex-wrap:wrap">
-    ${e.estadoAdmin !== 'EJECUTADO' ? `
-      <button class="secondary" id="suspendEventBtn">
-        ⏸ Suspender evento
-      </button>
-
-      <button class="secondary" id="markEventExecuted">
-        ✓ Marcar ejecutado
-      </button>
-    ` : ''}
-
-    <button class="success" id="closeEventBtn">
-      ✓ Cerrar evento
-    </button>
-  </div>
+  <button class="event-action-btn" id="closeEventBtn" type="button">
+    <span>CERRAR</span>
+    <strong>EVENTO</strong>
+  </button>
 </div>
 ` : ''}
       </div>
