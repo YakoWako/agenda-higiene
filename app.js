@@ -527,9 +527,9 @@ function eventStatePill(e){
       toast('Este perfil tiene acceso de solo lectura.');
       return;
     }
-    $('.section').forEach(s=>s.classList.remove('active'));
+    $('.section').forEach(section=>section.classList.remove('active'));
     $('#view-'+v).classList.add('active');
-    $('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+    $('.nav button').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===v));
     window.scrollTo({top:0,behavior:'smooth'});
   }
   function fillSelectors(){
