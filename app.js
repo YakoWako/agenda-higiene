@@ -553,9 +553,21 @@ function eventStatePill(e){
       toast('Este perfil tiene acceso de solo lectura.');
       return;
     }
+
     $('.section').forEach(section=>section.classList.remove('active'));
-    $('#view-'+v).classList.add('active');
-    $('.nav button').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===v));
+
+    const target=$('#view-'+v);
+    if(!target){
+      toast('No se encontró el panel solicitado.');
+      return;
+    }
+
+    target.classList.add('active');
+
+    $('.nav button').forEach(btn=>{
+      btn.classList.toggle('active',btn.dataset.view===v);
+    });
+
     window.scrollTo({top:0,behavior:'smooth'});
   }
   function fillSelectors(){
