@@ -3,7 +3,7 @@
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Navas','Jordy Zamora','Gabriel Torres'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
-  let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null};
+  let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
   let dailySelectedDate = '';
   const GENERAL_PAGE_SIZE = 20;
   let generalPage = 1;
@@ -341,8 +341,47 @@ function eventStatePill(e){
   // Sincronización con la base maestra en segundo plano.
   refresh();
 }
+  function normalizeRole(value){
+    const role=String(value||'').trim().toUpperCase();
+    return ['ADMIN','EDITOR','LECTURA'].includes(role)?role:'LECTURA';
+  }
+
+  function canEdit(){
+    return state.role==='ADMIN'||state.role==='EDITOR';
+  }
+
+  function isAdmin(){
+    return state.role==='ADMIN';
+  }
+
+  function applyRoleUI(){
+    const locked=!canEdit();
+    const directoryBtn=$('.nav button[data-view="directory"]');
+    const registerBtn=$('.nav button[data-view="register"]');
+
+    [directoryBtn,registerBtn].forEach(btn=>{
+      if(!btn)return;
+      btn.disabled=locked;
+      btn.style.opacity=locked?'0.5':'';
+      btn.style.cursor=locked?'not-allowed':'';
+      btn.title=locked?'Acceso de solo lectura':'';
+    });
+
+    const roleLabel=$('#connectionRole');
+    if(roleLabel)roleLabel.textContent='Perfil: '+state.role;
+  }
+
   async function refresh(){
-    try{const d=await serverCall('getBootstrapData');state.events=(d?.events||[]).map(normalizeEvent);state.assignables=d?.assignables?.length?d.assignables:ASSIGNABLES_DEFAULT;state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;state.config=d?.config||{};renderAll();}
+    try{
+      const d=await serverCall('getBootstrapData');
+      state.events=(d?.events||[]).map(normalizeEvent);
+      state.assignables=d?.assignables?.length?d.assignables:ASSIGNABLES_DEFAULT;
+      state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;
+      state.config=d?.config||{};
+      state.role=normalizeRole(d?.role||state.config?.role);
+      renderAll();
+      applyRoleUI();
+    }
     catch(e){console.error(e);const msg=e?.message||String(e);if(/ACCESO_DENEGADO|CLAVE_NO_CONFIGURADA|BACKEND_NO_CONFIGURADO/.test(msg)){setConnectionState('No se pudo autenticar la conexión.','bad');openSettings();}toast('No se pudo cargar la base. Revise la conexión.');}
   }
   function normalizeEvent(e){
@@ -465,6 +504,8 @@ function eventStatePill(e){
     const fixed=window.AGENDA_CONFIG?.backendUrl||'';
     $('#backendUrl').value=window.AgendaApi?.getBackendUrl?.()||fixed;
     $('#accessKey').value=window.AgendaApi?.getAccessKey?.()||'';
+    const roleLabel=$('#connectionRole');
+    if(roleLabel)roleLabel.textContent='Perfil: '+state.role;
     setConnectionState(window.AgendaApi?.isConfigured?.()?'Conexión guardada en este dispositivo.':'Falta configurar la conexión.', window.AgendaApi?.isConfigured?.()?'warn':'bad');
   }
   function setConnectionState(text,kind='warn'){const el=$('#connectionState');if(!el)return;el.textContent=text;el.className=`hint conn-${kind}`;}
@@ -481,7 +522,16 @@ function eventStatePill(e){
   }
   function clearConnection(){window.AgendaApi.clear();$('#accessKey').value='';setConnectionState('Conexión borrada de este dispositivo.','warn');}
 
-  function showView(v){$$('.section').forEach(s=>s.classList.remove('active'));$(`#view-${v}`).classList.add('active');$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));window.scrollTo({top:0,behavior:'smooth'});}
+  function showView(v){
+    if((v==='directory'||v==='register')&&!canEdit()){
+      toast('Este perfil tiene acceso de solo lectura.');
+      return;
+    }
+    $('.section').forEach(s=>s.classList.remove('active'));
+    $('#view-'+v).classList.add('active');
+    $('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
   function fillSelectors(){
     $('#registrador').innerHTML='<option value="">Seleccione...</option>'+state.registrars.map(n=>`<option>${esc(n)}</option>`).join('')+'<option>Otro</option>';
     $('#newEventPeople').innerHTML=state.assignables.map(n=>`<label class="person-check"><input type="checkbox" value="${esc(n)}">${esc(n)}</label>`).join('');
@@ -742,6 +792,7 @@ const dotsTimer = setInterval(actualizarTexto, 450);
 
   function updateGeneratedHeader(){$('#generatedHeader').textContent=`Evento: ${$('#fTema').value||'Sin tema'}`;$('#generatedDate').textContent=fmtDate($('#fFecha').value)}
   async function saveNewEvent(){
+    if(!canEdit()){toast('Este perfil no puede crear eventos.');return;}
     if(savingNewEvent)return;
 
     const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value;
@@ -1073,7 +1124,7 @@ function eventInfoView(e){
     (e.compromisos||[]).map(c=>[String(c.id||''),c])
   );
 
-  const reopenButton=String(e.estadoAdmin||'').toUpperCase()==='CERRADO'
+  const reopenButton=String(e.estadoAdmin||'').toUpperCase()==='CERRADO'&&isAdmin()
     ? '<button class="secondary" id="reopenEventBtn" type="button" title="Reabrir evento" aria-label="Reabrir evento" style="width:40px;height:40px;padding:0;display:grid;place-items:center;font-size:20px">↺</button>'
     : '';
 
@@ -1223,6 +1274,11 @@ function openEventInfo(id){
 }
 
 async function reopenEvent(id,btn=null){
+  if(!isAdmin()){
+    toast('Solo el administrador puede reabrir eventos.');
+    return;
+  }
+
   const e=state.events.find(x=>x.id===id);
   if(!e)return;
 
@@ -1262,6 +1318,11 @@ async function reopenEvent(id,btn=null){
 }
 
 function openEvent(id){
+  if(!canEdit()){
+    openEventInfo(id);
+    return;
+  }
+
   const e = state.events.find(x => x.id === id);
   if (!e) return;
 
@@ -1733,6 +1794,7 @@ function bindEventEditor(e, ro){
   }
 }
 async function saveEventChanges(targetState='',actionBtn=null){
+  if(!canEdit()){toast('Este perfil no puede modificar eventos.');return false;}
   if (savingEventChanges) return false;
 
   const e = state.events.find(x => x.id === state.currentEventId);
