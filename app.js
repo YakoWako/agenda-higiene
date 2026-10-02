@@ -501,26 +501,52 @@ function eventStatePill(e){
   }
 
   function fillConnectionFields(){
-    const fixed=window.AGENDA_CONFIG?.backendUrl||'';
-    $('#backendUrl').value=window.AgendaApi?.getBackendUrl?.()||fixed;
-    $('#accessKey').value=window.AgendaApi?.getAccessKey?.()||'';
+    $('#accessKey').value='';
     const roleLabel=$('#connectionRole');
     if(roleLabel)roleLabel.textContent='Perfil: '+state.role;
-    setConnectionState(window.AgendaApi?.isConfigured?.()?'Conexión guardada en este dispositivo.':'Falta configurar la conexión.', window.AgendaApi?.isConfigured?.()?'warn':'bad');
+    setConnectionState(
+      window.AgendaApi?.isConfigured?.()
+        ? 'Conexión guardada en este dispositivo.'
+        : 'Ingrese una clave de acceso para conectar este dispositivo.',
+      window.AgendaApi?.isConfigured?.()?'warn':'bad'
+    );
   }
   function setConnectionState(text,kind='warn'){const el=$('#connectionState');if(!el)return;el.textContent=text;el.className=`hint conn-${kind}`;}
   function openSettings(){fillConnectionFields();$('#settingsModal').classList.add('open')}
   function closeSettings(){$('#settingsModal').classList.remove('open')}
   async function saveConnection(){
     try{
-      window.AgendaApi.configure($('#backendUrl').value,$('#accessKey').value);
+      const key=$('#accessKey').value.trim();
+      const backendUrl=window.AGENDA_CONFIG?.backendUrl||window.AgendaApi?.getBackendUrl?.()||'';
+
+      if(!key){
+        setConnectionState('Ingrese la clave de acceso.','bad');
+        return;
+      }
+
+      window.AgendaApi.configure(backendUrl,key);
       setConnectionState('Comprobando conexión…','warn');
-      await window.AgendaApi.call('ping');
-      setConnectionState('✓ Conexión correcta.','ok');
-      await refresh(); setTimeout(closeSettings,450); toast('Aplicativo conectado con la base maestra.');
-    }catch(e){console.error(e);setConnectionState(e?.message||'No se pudo conectar.','bad');}
+
+      const ping=await window.AgendaApi.call('ping');
+      state.role=normalizeRole(ping?.role);
+
+      await refresh();
+      $('#accessKey').value='';
+      closeSettings();
+      toast('Conexión correcta · Perfil '+state.role);
+
+    }catch(e){
+      console.error(e);
+      setConnectionState(e?.message||'No se pudo conectar.','bad');
+    }
   }
-  function clearConnection(){window.AgendaApi.clear();$('#accessKey').value='';setConnectionState('Conexión borrada de este dispositivo.','warn');}
+  function clearConnection(){
+    window.AgendaApi.clear();
+    state.role='LECTURA';
+    $('#accessKey').value='';
+    applyRoleUI();
+    setConnectionState('Conexión borrada de este dispositivo.','warn');
+  }
 
   function showView(v){
     if((v==='directory'||v==='register')&&!canEdit()){
@@ -1088,8 +1114,8 @@ function eventInfoView(e){
   function photoEvidenceLink(v,label){
     const meta=getEvidenceMeta(v);
     return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;margin-top:8px">'+
-      '<div style="font-weight:800;color:var(--navy);margin-bottom:4px">'+esc(meta.legend||label)+'</div>'+
-      '<a class="secondary" href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">📷 '+esc(label)+'</a>'+
+      '<div style="font-weight:500;color:var(--text);line-height:1.45;margin-bottom:7px">'+esc(meta.legend||label)+'</div>'+
+      '<a class="secondary" href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-weight:700">📷 '+esc(label)+'</a>'+
     '</div>';
   }
 
@@ -1147,7 +1173,7 @@ function eventInfoView(e){
 
   html+='<div class="card" style="margin-top:12px">'+
     '<div class="card-title">📷 Evidencias fotográficas</div>'+
-    '<div style="font-weight:800;color:var(--navy);margin-top:4px">1. Asistencia del funcionario</div>';
+    '<div style="font-size:11px;font-weight:800;color:#6b7f72;text-transform:uppercase;letter-spacing:.35px;margin-top:4px">1. Asistencia del funcionario</div>';
 
   if(attendancePhotos.length){
     html+=attendancePhotos.map((v,i)=>
@@ -1162,7 +1188,7 @@ function eventInfoView(e){
     '</div>';
   }
 
-  html+='<div style="font-weight:800;color:var(--navy);margin-top:16px">2. Evidencias de compromisos cumplidos</div>';
+  html+='<div style="font-size:11px;font-weight:800;color:#6b7f72;text-transform:uppercase;letter-spacing:.35px;margin-top:16px">2. Evidencias de compromisos cumplidos</div>';
 
   if(commitmentPhotos.length){
     html+=commitmentPhotos.map(v=>{
@@ -1173,11 +1199,11 @@ function eventInfoView(e){
         : meta.legend;
 
       return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;margin-top:8px">'+
-        '<div style="font-weight:800;color:var(--navy);margin-bottom:3px">'+esc(detail)+'</div>'+
+        '<div style="font-weight:600;color:var(--text);line-height:1.45;margin-bottom:3px">'+esc(detail)+'</div>'+
         (meta.legend&&meta.legend!==detail
-          ? '<div class="muted" style="font-size:12px;margin-bottom:6px">'+esc(meta.legend)+'</div>'
+          ? '<div class="muted" style="font-size:12px;margin-bottom:7px">'+esc(meta.legend)+'</div>'
           : '')+
-        '<a class="secondary" href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">📷 Ver evidencia del compromiso</a>'+
+        '<a class="secondary" href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-weight:700">📷 Ver evidencia del compromiso</a>'+
       '</div>';
     }).join('');
   }else{
@@ -1190,7 +1216,7 @@ function eventInfoView(e){
   }
 
   if(otherEvidence.length){
-    html+='<div style="font-weight:800;color:var(--navy);margin-top:16px">Otras evidencias</div>'+
+    html+='<div style="font-size:11px;font-weight:800;color:#6b7f72;text-transform:uppercase;letter-spacing:.35px;margin-top:16px">Otras evidencias</div>'+
       otherEvidence.map(v=>{
         const meta=getEvidenceMeta(v);
         return '<div style="margin-top:8px">'+
