@@ -867,7 +867,7 @@ function openEventInfo(id){
     };
   }
 
-  $('#drawerBody .copy-event-link').forEach(btn=>{
+  $$('#drawerBody .copy-event-link').forEach(btn=>{
     btn.onclick=event=>{
       event.preventDefault();
       event.stopPropagation();
