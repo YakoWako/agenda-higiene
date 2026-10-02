@@ -707,6 +707,50 @@ function fallbackCopyEventLink(text,label){
   area.remove();
 }
 
+function buildEventShareText(e){
+  const asignados=(e.asignados||[]).filter(Boolean);
+  const {reunionUrl,ubicacionUrl}=getEventLinks(e);
+
+  const lines=[
+    `AGENDA HIGIENE`,
+    ``,
+    `Tema: ${e.tema||e.tipo||'Evento'}`,
+    `Tipo: ${e.tipo||'—'}`,
+    `Fecha: ${fmtDate(e.fecha)}`,
+    `Hora: ${e.hora||'Sin hora'}`,
+    `Lugar: ${e.lugar||'—'}`,
+    `Convocados: ${e.convocados||'—'}`,
+    `Asignado(s): ${asignados.length ? asignados.join(', ') : 'Sin asignar'}`
+  ];
+
+  if(reunionUrl){
+    lines.push(`Enlace de reunión virtual: ${reunionUrl}`);
+  }
+
+  if(ubicacionUrl){
+    lines.push(`Ubicación: ${ubicacionUrl}`);
+  }
+
+  if(e.observaciones){
+    lines.push(`Observaciones: ${e.observaciones}`);
+  }
+
+  return lines.join('\n');
+}
+
+function copyEventSheet(e){
+  const text=buildEventShareText(e);
+
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(text)
+      .then(()=>toast('Ficha copiada correctamente.'))
+      .catch(()=>fallbackCopyEventLink(text,'Ficha'));
+    return;
+  }
+
+  fallbackCopyEventLink(text,'Ficha');
+}
+
 function eventInfoView(e){
   const asignados=(e.asignados||[]).filter(Boolean);
   const asignacionesMeta=e.asignacionesMeta||{};
@@ -747,6 +791,7 @@ function eventInfoView(e){
   const asignadosHtml=asignados.length
     ? asignados.map(nombre=>{
         const hora=formatActionTime(asignacionesMeta[nombre]);
+
         return '<div>'+esc(nombre)+
           (hora
             ? ' <span style="color:var(--muted);font-size:12px;font-weight:500">('+esc(hora)+')</span>'
@@ -755,17 +800,21 @@ function eventInfoView(e){
       }).join('')
     : '<span class="muted">Sin asignar</span>';
 
-  let html='<div class="card">'+
-    '<div class="card-title">📋 Información del evento</div>'+
-    '<div class="grid grid-2">'+
-      infoItem('Tipo',e.tipo)+
-      infoItem('Fecha',fmtDate(e.fecha))+
-      infoItem('Hora',e.hora||'Sin hora')+
-      infoItem('Lugar',e.lugar)+
-      infoItem('Convocados',e.convocados)+
-      infoItemHtml('Asignado(s)',asignadosHtml)+
+  let html=
+    '<div style="display:flex;justify-content:flex-start;margin-bottom:12px">'+
+      '<button class="secondary" id="copyEventSheetBtn" type="button">📋 Copiar ficha</button>'+
     '</div>'+
-  '</div>';
+    '<div class="card">'+
+      '<div class="card-title">📋 Información del evento</div>'+
+      '<div class="grid grid-2">'+
+        infoItem('Tipo',e.tipo)+
+        infoItem('Fecha',fmtDate(e.fecha))+
+        infoItem('Hora',e.hora||'Sin hora')+
+        infoItem('Lugar',e.lugar)+
+        infoItem('Convocados',e.convocados)+
+        infoItemHtml('Asignado(s)',asignadosHtml)+
+      '</div>'+
+    '</div>';
 
   if(e.observaciones){
     html+='<div class="card" style="margin-top:12px">'+
@@ -788,16 +837,46 @@ function openEventInfo(id){
   if(!e)return;
 
   state.currentEventId=id;
-  $('#drawerTitle').textContent=e.tema||e.tipo||'Evento';
-  $('#drawerSub').textContent=[e.tipo,fmtDate(e.fecha),e.hora||'Sin hora',e.lugar].filter(Boolean).join(' · ');
-  $('#drawerAdminState').innerHTML=eventStatePill(e);
-  $('#drawerBody').innerHTML=eventInfoView(e);
+
+  $('#drawerTitle').textContent=
+    e.tema||e.tipo||'Evento';
+
+  $('#drawerSub').textContent=[
+    e.tipo,
+    fmtDate(e.fecha),
+    e.hora||'Sin hora',
+    e.lugar
+  ].filter(Boolean).join(' · ');
+
+  $('#drawerAdminState').innerHTML=
+    eventStatePill(e);
+
+  $('#drawerBody').innerHTML=
+    eventInfoView(e);
 
   $('#drawer').classList.add('open');
   $('#drawerBackdrop').classList.add('open');
 
+  const copySheetBtn=$('#copyEventSheetBtn');
+
+  if(copySheetBtn){
+    copySheetBtn.onclick=event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      copyEventSheet(e);
+    };
+  }
+
   $('#drawerBody .copy-event-link').forEach(btn=>{
-    btn.onclick=()=>copyEventLink(btn.dataset.copyLink,btn.dataset.copyLabel||'Enlace');
+    btn.onclick=event=>{
+      event.preventDefault();
+      event.stopPropagation();
+
+      copyEventLink(
+        btn.dataset.copyLink,
+        btn.dataset.copyLabel||'Enlace'
+      );
+    };
   });
 }
 
