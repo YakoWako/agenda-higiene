@@ -61,6 +61,16 @@
     if (reopen && role !== 'ADMIN') {
       event.preventDefault();
       event.stopImmediatePropagation();
+      return;
+    }
+
+    if (event.target.closest('#saveConnection')) {
+      setTimeout(refreshRole, 900);
+    }
+
+    if (event.target.closest('#clearConnection')) {
+      role = 'LECTURA';
+      setTimeout(applyRole, 50);
     }
   }, true);
 
