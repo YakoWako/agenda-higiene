@@ -16,7 +16,21 @@
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
   const esc = s => String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const uid = p => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
-  const todayISO = () => new Intl.DateTimeFormat('en-CA',{timeZone:APP_TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  function todayISO(){
+    const parts=new Intl.DateTimeFormat('en-US',{
+      timeZone:APP_TZ,
+      year:'numeric',
+      month:'2-digit',
+      day:'2-digit'
+    }).formatToParts(new Date());
+
+    const values={};
+    parts.forEach(p=>{
+      if(p.type!=='literal') values[p.type]=p.value;
+    });
+
+    return `${values.year}-${values.month}-${values.day}`;
+  }
   const fmtDate = iso => { if(!iso) return 'Sin fecha'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; };
   const fmtNow = () => new Intl.DateTimeFormat('es-EC',{timeZone:APP_TZ,weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
   function shiftISODate(iso,days){
@@ -653,7 +667,7 @@ let puntos = 0;
 
 const actualizarTexto = () => {
   puntos = (puntos % 3) + 1;
-  btn.textContent = '✨ Procesando' + '.'.repeat(puntos);
+  btn.textContent = 'Procesando' + '.'.repeat(puntos);
 };
 
 actualizarTexto();
@@ -1282,22 +1296,22 @@ function bindEventEditor(e, ro){
 
   const saveBtn = $('#saveEventChanges');
   if (saveBtn) {
-    saveBtn.onclick = () => saveEventChanges();
+    saveBtn.onclick = () => saveEventChanges('',saveBtn);
   }
 
   const suspendBtn = $('#suspendEventBtn');
   if (suspendBtn) {
-    suspendBtn.onclick = () => setAdminState('SUSPENDIDO');
+    suspendBtn.onclick = () => setAdminState('SUSPENDIDO',suspendBtn);
   }
 
   const executedBtn = $('#markEventExecuted');
   if (executedBtn) {
-    executedBtn.onclick = () => setAdminState('EJECUTADO');
+    executedBtn.onclick = () => setAdminState('EJECUTADO',executedBtn);
   }
 
   const closeBtn = $('#closeEventBtn');
   if (closeBtn) {
-    closeBtn.onclick = () => setAdminState('CERRADO');
+    closeBtn.onclick = () => setAdminState('CERRADO',closeBtn);
   }
 }
   function bindRemoveCommitments(){$$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row').remove())}
@@ -1440,11 +1454,11 @@ toast('Evidencia añadida correctamente.');
     }
   }
 }
-async function saveEventChanges(targetState){
-  if (savingEventChanges) return;
+async function saveEventChanges(targetState='',actionBtn=null){
+  if (savingEventChanges) return false;
 
   const e = state.events.find(x => x.id === state.currentEventId);
-  if (!e) return;
+  if (!e) return false;
 
   const rawLinkReunion=$('#editLinkReunion').value.trim();
   const rawLinkUbicacion=$('#editLinkUbicacion').value.trim();
@@ -1453,11 +1467,11 @@ async function saveEventChanges(targetState){
 
   if(rawLinkReunion&&!linkReunion){
     toast('El enlace de reunión virtual no es válido.');
-    return;
+    return false;
   }
   if(rawLinkUbicacion&&!linkUbicacion){
     toast('El enlace de ubicación no es válido.');
-    return;
+    return false;
   }
 
   e.tipo = $('#editTipo').value.trim();
@@ -1490,7 +1504,7 @@ async function saveEventChanges(targetState){
   e.asignacionesMeta = asignacionesMeta;
 
   const compromisos=collectCommitments();
-  if(compromisos===null) return;
+  if(compromisos===null) return false;
 
   e.compromisos = compromisos;
   e.observaciones = $('#editObs').value.trim();
@@ -1503,14 +1517,14 @@ async function saveEventChanges(targetState){
 
   e.updatedAt = new Date().toISOString();
 
-  const btn = $('#saveEventChanges');
-  const textoOriginal = btn ? btn.textContent : 'Guardar cambios';
+  const btn = actionBtn || $('#saveEventChanges');
+  const contenidoOriginal = btn ? btn.innerHTML : '';
 
   savingEventChanges = true;
 
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Guardando…';
+    btn.innerHTML = '<span>PROCESANDO</span><strong>GUARDANDO...</strong>';
   }
 
   try {
@@ -1521,20 +1535,22 @@ renderAll();
 
 openEvent(updated.id);
 toast('Cambios guardados correctamente.');
+return true;
 
   } catch (err) {
     console.error(err);
     toast('No se pudieron guardar los cambios.');
+    return false;
 
   } finally {
     savingEventChanges = false;
 
-    if (btn) {
+    if (btn && btn.isConnected) {
       btn.disabled = false;
-      btn.textContent = textoOriginal;
+      btn.innerHTML = contenidoOriginal;
     }
   }
-}  async function setAdminState(s){
+}  async function setAdminState(s,actionBtn=null){
   const e=state.events.find(x=>x.id===state.currentEventId);
   if(!e)return;
 
@@ -1551,7 +1567,8 @@ toast('Cambios guardados correctamente.');
     return;
   }
 
-  await saveEventChanges(s);
+  const saved=await saveEventChanges(s,actionBtn);
+  if(!saved)return;
 
   if(s==='CERRADO'||s==='SUSPENDIDO'){
     generalPage=1;
