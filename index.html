@@ -137,8 +137,18 @@
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js"></script>
-<script src="api.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=3"></script>
+<script src="api.js?v=3"></script>
+<script src="app.js?v=3"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('./sw.js?v=3', { scope: './', updateViaCache: 'none' })
+        .then(registration => registration.update())
+        .catch(error => console.warn('No se pudo actualizar el Service Worker:', error));
+    });
+  }
+</script>
 </body>
 </html>
