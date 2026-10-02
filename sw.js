@@ -1,5 +1,5 @@
-const CACHE='agenda-higiene-v7';
-const ASSETS=['./','./index.html','./config.js?v=6','./api.js?v=6','./app.js?v=6','./manifest.json','./icon.svg'];
+const CACHE='agenda-higiene-v8';
+const ASSETS=['./','./index.html','./config.js?v=6','./api.js?v=6','./app.js?v=7','./manifest.json','./icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
