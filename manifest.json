@@ -4,8 +4,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f8fc",
-  "theme_color": "#0b5cab",
+  "background_color": "#f5f8f5",
+  "theme_color": "#207a44",
   "description": "Control de eventos, compromisos, responsables, evidencias y alertas de Higiene",
   "icons": [
     {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
