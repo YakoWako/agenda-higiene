@@ -158,54 +158,56 @@
   }
 
   function alertInfo(e,now=new Date()){
-    if(e.estadoAdmin==='CERRADO') return null; const when=dt(e); if(!when) return {urgency:null,assignment:(e.asignados||[]).length?'ASIGNADO':'NO ASIGNADO',hours:null};
-    const h=(when-now)/36e5; let urgency=null; if(h<=0) urgency='VENCIDO'; else if(h<=1) urgency='CRÍTICO'; else if(h<=3) urgency='PRÓXIMO';
-    return {urgency,assignment:(e.asignados||[]).length?'ASIGNADO':'NO ASIGNADO',hours:h};
+    const admin=String(e.estadoAdmin||'').toUpperCase();
+    if(admin==='CERRADO'||admin==='SUSPENDIDO') return null;
+
+    const when=dt(e);
+    if(!when) return {urgency:null,hours:null};
+
+    const h=(when-now)/36e5;
+    let urgency=null;
+
+    if(h<=0) urgency='VENCIDO';
+    else if(h<=1) urgency='CRÍTICO';
+    else if(h<=3) urgency='PRÓXIMO';
+
+    return {urgency,hours:h};
   }
   function urgencyPill(u){if(!u)return '';const c=u==='PRÓXIMO'?'urg-proximo':u==='CRÍTICO'?'urg-critico':'urg-vencido';return `<span class="alert-pill ${c}">${u}</span>`}
-  function assignmentPill(a){return `<span class="assign-pill ${a==='ASIGNADO'?'a-assigned':'a-unassigned'}">${a}</span>`}
-  function adminPill(s){const c=s==='RECIBIDO'?'s-received':s==='ASIGNADO'?'s-assigned':s==='EJECUTADO'?'s-executed':'s-closed';return `<span class="status-pill ${c}">${s==='CERRADO'?'✓ ':''}${s}</span>`}
   function eventVisualState(e, now = new Date()){
-  const admin = String(e.estadoAdmin || 'RECIBIDO').toUpperCase();
+    const admin=String(e.estadoAdmin||'').toUpperCase();
 
-  if(admin === 'CERRADO') return 'CERRADO';
-  if(admin === 'EJECUTADO') return 'EJECUTADO';
+    if(admin==='SUSPENDIDO') return 'SUSPENDIDO';
+    if(admin==='CERRADO') return 'CERRADO';
+    if(admin==='EJECUTADO') return 'EJECUTADO';
 
-  const assigned = (e.asignados || []).length > 0;
-  const when = dt(e);
+    const when=dt(e);
 
-  // La hora ya pasó, pero todavía nadie confirmó ejecución.
-  if(when && when.getTime() <= now.getTime()){
-    return 'VENCIDO';
-  }
-
-  // A 3 horas o menos y continúa sin responsable.
-  if(!assigned && when){
-    const hours = (when.getTime() - now.getTime()) / 36e5;
-
-    if(hours <= 3){
-      return 'NO ASIGNADO';
+    // La hora ya pasó, pero todavía nadie confirmó ejecución.
+    if(when&&when.getTime()<=now.getTime()){
+      return 'VENCIDO';
     }
+
+    if((e.asignados||[]).length>0) return 'ASIGNADO';
+
+    // Sin RECIBIDO ni NO ASIGNADO: el evento activo puede quedar sin etiqueta
+    // hasta que se asigne, venza, se ejecute, se suspenda o se cierre.
+    return '';
   }
-
-  if(assigned) return 'ASIGNADO';
-
-  return 'RECIBIDO';
-}
 
 function eventStatePill(e){
-  const stateName = eventVisualState(e);
+  const stateName=eventVisualState(e);
+  if(!stateName) return '';
 
-  const colors = {
-    'RECIBIDO':     ['#dcecff', '#0b5cab'],
-    'NO ASIGNADO': ['#ffe3e3', '#b42318'],
-    'ASIGNADO':    ['#fff0bd', '#9a6700'],
-    'VENCIDO':     ['#e8edf2', '#43576b'],
-    'EJECUTADO':   ['#daf5e4', '#08783f'],
-    'CERRADO':     ['#148447', '#ffffff']
+  const colors={
+    'ASIGNADO':    ['#fff0bd','#9a6700'],
+    'VENCIDO':     ['#e8edf2','#43576b'],
+    'EJECUTADO':   ['#daf5e4','#08783f'],
+    'SUSPENDIDO':  ['#eee7f7','#6f42a6'],
+    'CERRADO':     ['#148447','#ffffff']
   };
 
-  const [bg, color] = colors[stateName] || colors.RECIBIDO;
+  const [bg,color]=colors[stateName]||colors.ASIGNADO;
 
   return `
     <span style="
@@ -370,6 +372,17 @@ function eventStatePill(e){
       }
     });
 
+    const rawAdmin=String(e?.estadoAdmin||'').toUpperCase();
+    const estadoAdmin=
+      rawAdmin==='RECIBIDO'||rawAdmin==='NO ASIGNADO'
+        ? (asignados.length?'ASIGNADO':'')
+        : rawAdmin;
+
+    const compromisos=(Array.isArray(e.compromisos)?e.compromisos:[]).map(c=>({
+      ...c,
+      estado:String(c?.estado||'').toUpperCase()==='EJECUTADO'?'EJECUTADO':'ASIGNADO'
+    }));
+
     return {
       ...e,
       tema:cleanNonLinkField(e.tema),
@@ -378,7 +391,8 @@ function eventStatePill(e){
       observaciones:cleanNonLinkField(e.observaciones),
       asignados,
       asignacionesMeta,
-      compromisos:Array.isArray(e.compromisos)?e.compromisos:[],
+      estadoAdmin,
+      compromisos,
       evidencias:Array.isArray(e.evidencias)?e.evidencias:[]
     };
   }
@@ -495,8 +509,8 @@ function eventCard(e,readOnly=false){
       c.onclick=()=>mode==='info'?openEventInfo(c.dataset.id):openEvent(c.dataset.id);
     });
   }
-  function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>e.estadoAdmin!=='CERRADO').filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
-  function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>e.estadoAdmin==='CERRADO').filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados.</div>';attachCards(el,'info');}
+  function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>!['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
+  function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados o suspendidos.</div>';attachCards(el,'info');}
   function renderDaily(){
     const selected=dailySelectedDate||todayISO();
     dailySelectedDate=selected;
@@ -529,7 +543,7 @@ function eventCard(e,readOnly=false){
   }
   function sortRecent(a,b){const av=`${a.fecha||''} ${a.hora||''}`;const bv=`${b.fecha||''} ${b.hora||''}`;return bv.localeCompare(av)}
 
-  function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&e.estadoAdmin!=='CERRADO').map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
+  function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&!['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
 function alertRow(x){
   const e = x.e;
 
@@ -550,7 +564,7 @@ function alertRow(x){
   function renderAlerts(){const rows=getTodayAlerts();$('#alertCount').textContent=rows.length;$('#alertCount').classList.toggle('hidden',!rows.length);$('#alertCountLabel').textContent=rows.length;$('#alertsList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty" style="border:0">Sin alertas activas.</div>';$('#alertsModalList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty">Sin alertas activas.</div>';[$('#alertsList'),$('#alertsModalList')].forEach(el=>el.querySelectorAll('.alert-row').forEach(r=>r.onclick=()=>{closeAlerts();openEventInfo(r.dataset.id)}));maybeNotify(rows);}
   function openAlerts(){$('#alertsModal').classList.add('open')} function closeAlerts(){$('#alertsModal').classList.remove('open')}
   async function requestNotifications(){if(!('Notification'in window)){toast('Este navegador no admite notificaciones.');return}const p=await Notification.requestPermission();toast(p==='granted'?'Avisos del navegador activados mientras use la app.':'Permiso de notificación no concedido.');}
-  function maybeNotify(rows){if(!('Notification'in window)||Notification.permission!=='granted')return;const today=todayISO();rows.forEach(({e,a})=>{const key=`notif:${today}:${e.id}:${a.urgency}:${a.assignment}`;if(localStorage.getItem(key))return;new Notification(`Agenda Higiene · ${a.urgency}`,{body:`${e.tema||e.tipo} · ${e.hora||''} · ${a.assignment}`});localStorage.setItem(key,'1')});}
+  function maybeNotify(rows){if(!('Notification'in window)||Notification.permission!=='granted')return;const today=todayISO();rows.forEach(({e,a})=>{const key=`notif:${today}:${e.id}:${a.urgency}`;if(localStorage.getItem(key))return;new Notification(`Agenda Higiene · ${a.urgency}`,{body:`${e.tema||e.tipo} · ${e.hora||''}`});localStorage.setItem(key,'1')});}
 
   async function processInput(){
     if (processingInput) return;
@@ -691,7 +705,7 @@ const dotsTimer = setInterval(actualizarTexto, 450);
       linkUbicacion,
       asignados:assigned,
       asignacionesMeta,
-      estadoAdmin:'RECIBIDO',
+      estadoAdmin:assigned.length?'ASIGNADO':'',
       observaciones:$('#fObservaciones').value.trim(),
       rawText:$('#rawText').value.trim(),
       compromisos:[],
@@ -793,6 +807,11 @@ function buildEventShareText(e){
     `Convocados: ${e.convocados||'—'}`,
     `Asignado(s): ${asignados.length ? asignados.join(', ') : 'Sin asignar'}`
   ];
+
+  const visualState=eventVisualState(e);
+  if(visualState){
+    lines.push(`Estado: ${visualState}`);
+  }
 
   if(reunionUrl){
     lines.push(`Enlace de reunión virtual: ${reunionUrl}`);
@@ -970,7 +989,7 @@ function openEvent(id){
   ].filter(Boolean).join(' · ');
 
   $('#drawerAdminState').innerHTML =
-    adminPill(e.estadoAdmin || 'RECIBIDO');
+    eventStatePill(e);
 
   $('#drawerBody').innerHTML =
     eventEditor(e, readOnly);
@@ -1059,8 +1078,12 @@ function openEvent(id){
     Guardar cambios
   </button>
 
-  <div style="display:flex;gap:10px;margin-left:auto">
+  <div style="display:flex;gap:10px;margin-left:auto;flex-wrap:wrap">
     ${e.estadoAdmin !== 'EJECUTADO' ? `
+      <button class="secondary" id="suspendEventBtn">
+        ⏸ Suspender evento
+      </button>
+
       <button class="secondary" id="markEventExecuted">
         ✓ Marcar ejecutado
       </button>
@@ -1075,7 +1098,22 @@ function openEvent(id){
       </div>
       ${closedNote}`;
   }
-  function commitRow(c={}){return `<div class="commit-row" data-id="${esc(c.id||uid('CMP'))}"><input class="c-text" placeholder="Compromiso" value="${esc(c.compromiso||'')}"><select class="c-resp"><option value="">Sin responsable</option>${state.assignables.map(n=>`<option ${c.responsable===n?'selected':''}>${esc(n)}</option>`).join('')}</select><select class="c-state"><option ${(!c.estado||c.estado==='RECIBIDO')?'selected':''}>RECIBIDO</option><option ${c.estado==='ASIGNADO'?'selected':''}>ASIGNADO</option><option ${c.estado==='NO ASIGNADO'?'selected':''}>NO ASIGNADO</option><option ${c.estado==='EJECUTADO'?'selected':''}>EJECUTADO</option></select><button class="remove-btn" title="Eliminar">🗑</button></div>`}
+  function commitRow(c={}){
+    const currentState=String(c.estado||'').toUpperCase()==='EJECUTADO'?'EJECUTADO':'ASIGNADO';
+
+    return `<div class="commit-row" data-id="${esc(c.id||uid('CMP'))}">
+      <input class="c-text" placeholder="Compromiso" value="${esc(c.compromiso||'')}">
+      <select class="c-resp">
+        <option value="">Seleccione responsable...</option>
+        ${state.assignables.map(n=>`<option value="${esc(n)}" ${c.responsable===n?'selected':''}>${esc(n)}</option>`).join('')}
+      </select>
+      <select class="c-state">
+        <option value="ASIGNADO" ${currentState==='ASIGNADO'?'selected':''}>ASIGNADO</option>
+        <option value="EJECUTADO" ${currentState==='EJECUTADO'?'selected':''}>EJECUTADO</option>
+      </select>
+      <button class="remove-btn" title="Eliminar compromiso">🗑</button>
+    </div>`;
+  }
 function bindEventEditor(e, ro){
   if (ro) return;
 
@@ -1089,7 +1127,7 @@ function bindEventEditor(e, ro){
 
       $('#commitments').insertAdjacentHTML(
         'beforeend',
-        commitRow({estado:'RECIBIDO'})
+        commitRow({estado:'ASIGNADO'})
       );
 
       bindRemoveCommitments();
@@ -1125,6 +1163,11 @@ function bindEventEditor(e, ro){
     saveBtn.onclick = () => saveEventChanges();
   }
 
+  const suspendBtn = $('#suspendEventBtn');
+  if (suspendBtn) {
+    suspendBtn.onclick = () => setAdminState('SUSPENDIDO');
+  }
+
   const executedBtn = $('#markEventExecuted');
   if (executedBtn) {
     executedBtn.onclick = () => setAdminState('EJECUTADO');
@@ -1136,7 +1179,34 @@ function bindEventEditor(e, ro){
   }
 }
   function bindRemoveCommitments(){$$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row').remove())}
-  function collectCommitments(){return $$('#commitments .commit-row').map(r=>({id:r.dataset.id||uid('CMP'),eventId:state.currentEventId,compromiso:r.querySelector('.c-text').value.trim(),responsable:r.querySelector('.c-resp').value,estado:r.querySelector('.c-state').value,updatedAt:new Date().toISOString()})).filter(c=>c.compromiso)}
+  function collectCommitments(){
+    const rows=$('#commitments .commit-row');
+    const commitments=[];
+
+    for(const r of rows){
+      const compromiso=r.querySelector('.c-text').value.trim();
+      const responsable=r.querySelector('.c-resp').value;
+
+      if(!compromiso) continue;
+
+      if(!responsable){
+        toast('Todo compromiso debe tener un responsable.');
+        r.querySelector('.c-resp').focus();
+        return null;
+      }
+
+      commitments.push({
+        id:r.dataset.id||uid('CMP'),
+        eventId:state.currentEventId,
+        compromiso,
+        responsable,
+        estado:r.querySelector('.c-state').value==='EJECUTADO'?'EJECUTADO':'ASIGNADO',
+        updatedAt:new Date().toISOString()
+      });
+    }
+
+    return commitments;
+  }
   async function addEvidence(kind) {
   const e = state.events.find(x => x.id === state.currentEventId);
   if (!e) return;
@@ -1296,13 +1366,17 @@ async function saveEventChanges(targetState){
 
   e.asignados = newAssigned;
   e.asignacionesMeta = asignacionesMeta;
-  e.compromisos = collectCommitments();
+
+  const compromisos=collectCommitments();
+  if(compromisos===null) return;
+
+  e.compromisos = compromisos;
   e.observaciones = $('#editObs').value.trim();
 
   if (targetState) {
     e.estadoAdmin = targetState;
-  } else if (e.estadoAdmin === 'RECIBIDO' && e.asignados.length) {
-    e.estadoAdmin = 'ASIGNADO';
+  } else if (!['EJECUTADO','CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())) {
+    e.estadoAdmin = e.asignados.length ? 'ASIGNADO' : '';
   }
 
   e.updatedAt = new Date().toISOString();
@@ -1338,10 +1412,33 @@ toast('Cambios guardados correctamente.');
       btn.textContent = textoOriginal;
     }
   }
-}  async function setAdminState(s){const e=state.events.find(x=>x.id===state.currentEventId);if(!e)return;if(s==='CERRADO'&&!(e.evidencias||[]).length){toast('No se puede cerrar sin evidencia.');return}if(s==='CERRADO'&&!confirm('¿Cerrar este evento? Pasará al Panel general y quedará en solo lectura.'))return;await saveEventChanges(s);if(s==='CERRADO'){closeDrawer();showView('general');}}
+}  async function setAdminState(s){
+  const e=state.events.find(x=>x.id===state.currentEventId);
+  if(!e)return;
+
+  if(s==='CERRADO'&&!(e.evidencias||[]).length){
+    toast('No se puede cerrar sin evidencia.');
+    return;
+  }
+
+  if(s==='SUSPENDIDO'&&!confirm('¿Marcar este evento como SUSPENDIDO? Dejará de generar alertas y pasará al Panel general.')){
+    return;
+  }
+
+  if(s==='CERRADO'&&!confirm('¿Cerrar este evento? Pasará al Panel general y quedará en solo lectura.')){
+    return;
+  }
+
+  await saveEventChanges(s);
+
+  if(s==='CERRADO'||s==='SUSPENDIDO'){
+    closeDrawer();
+    showView('general');
+  }
+}
 
   function demoEvents(){const t=todayISO();return [
-    {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'WhatsApp',tipo:'Reunión',tema:'Reunión con comunidad',fecha:t,hora:addHoursTime(0.7),lugar:'Manta',convocados:'Direcciones municipales',asignados:[],estadoAdmin:'RECIBIDO',observaciones:'',compromisos:[],evidencias:[]},
+    {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'WhatsApp',tipo:'Reunión',tema:'Reunión con comunidad',fecha:t,hora:addHoursTime(0.7),lugar:'Manta',convocados:'Direcciones municipales',asignados:[],estadoAdmin:'',observaciones:'',compromisos:[],evidencias:[]},
     {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'Correo',tipo:'Avanzada',tema:'Levantamiento de información',fecha:t,hora:addHoursTime(2.3),lugar:'Tarqui',convocados:'Higiene',asignados:['William Pruss'],estadoAdmin:'ASIGNADO',observaciones:'',compromisos:[],evidencias:[]},
     {id:uid('EVT'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),registrador:'Romeo Mendoza',fuente:'Gestor',tipo:'Capacitación',tema:'Manejo de residuos',fecha:t,hora:addHoursTime(0.8),lugar:'Municipio',convocados:'Personal operativo',asignados:['Gabriel García'],estadoAdmin:'ASIGNADO',observaciones:'',compromisos:[],evidencias:[]}
   ].map(normalizeEvent)}
