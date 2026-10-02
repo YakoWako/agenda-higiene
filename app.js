@@ -167,7 +167,7 @@
 
   function alertInfo(e,now=new Date()){
     const admin=String(e.estadoAdmin||'').toUpperCase();
-    if(admin==='CERRADO'||admin==='SUSPENDIDO') return null;
+    if(['CERRADO','SUSPENDIDO','EJECUTADO'].includes(admin)) return null;
 
     const when=dt(e);
     if(!when) return {urgency:null,hours:null};
@@ -621,7 +621,7 @@ function eventCard(e,readOnly=false){
   }
   function sortRecent(a,b){const av=`${a.fecha||''} ${a.hora||''}`;const bv=`${b.fecha||''} ${b.hora||''}`;return bv.localeCompare(av)}
 
-  function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&!['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
+  function getTodayAlerts(){return state.events.filter(e=>e.fecha===todayISO()&&!['CERRADO','SUSPENDIDO','EJECUTADO'].includes(String(e.estadoAdmin||'').toUpperCase())).map(e=>({e,a:alertInfo(e)})).filter(x=>x.a?.urgency).sort((x,y)=>(x.e.hora||'').localeCompare(y.e.hora||''));}
 function alertRow(x){
   const e = x.e;
 
@@ -1073,9 +1073,14 @@ function eventInfoView(e){
     (e.compromisos||[]).map(c=>[String(c.id||''),c])
   );
 
+  const reopenButton=String(e.estadoAdmin||'').toUpperCase()==='CERRADO'
+    ? '<button class="secondary" id="reopenEventBtn" type="button" title="Reabrir evento" aria-label="Reabrir evento" style="width:40px;height:40px;padding:0;display:grid;place-items:center;font-size:20px">↺</button>'
+    : '';
+
   let html=
-    '<div style="display:flex;justify-content:flex-start;margin-bottom:12px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px">'+
       '<button class="secondary" id="copyEventSheetBtn" type="button">📋 Copiar ficha</button>'+
+      reopenButton+
     '</div>'+
     '<div class="card">'+
       '<div class="card-title">📋 Información del evento</div>'+
@@ -1195,7 +1200,16 @@ function openEventInfo(id){
     };
   }
 
-  $$('#drawerBody .copy-event-link').forEach(btn=>{
+  const reopenBtn=$('#reopenEventBtn');
+  if(reopenBtn){
+    reopenBtn.onclick=event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      reopenEvent(e.id,reopenBtn);
+    };
+  }
+
+  $('#drawerBody .copy-event-link').forEach(btn=>{
     btn.onclick=event=>{
       event.preventDefault();
       event.stopPropagation();
@@ -1206,6 +1220,45 @@ function openEventInfo(id){
       );
     };
   });
+}
+
+async function reopenEvent(id,btn=null){
+  const e=state.events.find(x=>x.id===id);
+  if(!e)return;
+
+  if(String(e.estadoAdmin||'').toUpperCase()!=='CERRADO'){
+    toast('Este evento no está cerrado.');
+    return;
+  }
+
+  if(!confirm('¿Reabrir este evento? Volverá al Directorio como EJECUTADO y conservará toda su información.')){
+    return;
+  }
+
+  const original=btn?btn.innerHTML:'';
+
+  if(btn){
+    btn.disabled=true;
+    btn.innerHTML='…';
+  }
+
+  try{
+    const updated=await serverCall('reopenEvent',id);
+    updateEventInState(updated);
+    generalPage=1;
+    renderAll();
+    closeDrawer();
+    showView('directory');
+    toast('Evento reabierto correctamente.');
+  }catch(err){
+    console.error(err);
+    toast('No se pudo reabrir el evento. El backend debe estar actualizado.');
+  }finally{
+    if(btn&&btn.isConnected){
+      btn.disabled=false;
+      btn.innerHTML=original;
+    }
+  }
 }
 
 function openEvent(id){
