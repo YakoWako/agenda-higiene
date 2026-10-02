@@ -1180,7 +1180,7 @@ function bindEventEditor(e, ro){
 }
   function bindRemoveCommitments(){$$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row').remove())}
   function collectCommitments(){
-    const rows=$('#commitments .commit-row');
+    const rows=$$('#commitments .commit-row');
     const commitments=[];
 
     for(const r of rows){
