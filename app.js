@@ -209,7 +209,7 @@ function eventStatePill(e){
 
   const colors={
     'ASIGNADO':    ['#fff0bd','#9a6700'],
-    'VENCIDO':     ['#e8edf2','#43576b'],
+    'VENCIDO':     ['#edf0ee','#59645e'],
     'EJECUTADO':   ['#daf5e4','#08783f'],
     'SUSPENDIDO':  ['#eee7f7','#6f42a6'],
     'CERRADO':     ['#148447','#ffffff']
@@ -267,8 +267,8 @@ function eventStatePill(e){
       color = '#08783f';
     } else {
       labelBottom = 'ASIGNADO';
-      bg = '#e8f1ff';
-      color = '#2059a6';
+      bg = '#e5f2e9';
+      color = '#39744d';
     }
 
   } else {
@@ -276,8 +276,8 @@ function eventStatePill(e){
 
     if (executed === 0) {
       labelBottom = 'ASIGNADOS';
-      bg = '#e8f1ff';
-      color = '#2059a6';
+      bg = '#e5f2e9';
+      color = '#39744d';
 
     } else if (executed === total) {
       labelBottom = 'EJECUTADOS';
@@ -1004,14 +1004,14 @@ function eventInfoView(e){
 
   function infoItem(label,value){
     return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff">'+
-      '<div style="font-size:11px;font-weight:800;color:#667b91;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
+      '<div style="font-size:11px;font-weight:800;color:#6b7f72;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
       '<div style="color:var(--text);line-height:1.45">'+esc(value||'—')+'</div>'+
     '</div>';
   }
 
   function infoItemHtml(label,valueHtml){
     return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff">'+
-      '<div style="font-size:11px;font-weight:800;color:#667b91;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
+      '<div style="font-size:11px;font-weight:800;color:#6b7f72;text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px">'+esc(label)+'</div>'+
       '<div style="color:var(--text);line-height:1.55">'+valueHtml+'</div>'+
     '</div>';
   }
@@ -1020,7 +1020,7 @@ function eventInfoView(e){
     if(!url){
       return '<div class="field" style="margin-top:14px">'+
         '<label>'+esc(label)+'</label>'+
-        '<div style="border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#f7f9fc;color:var(--muted)">Sin enlace registrado</div>'+
+        '<div style="border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#f7faf8;color:var(--muted)">Sin enlace registrado</div>'+
       '</div>';
     }
 
