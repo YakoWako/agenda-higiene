@@ -79,12 +79,12 @@
 
   <section id="view-directory" class="section">
     <div class="hero"><div><h1>Directorio</h1><p>Eventos activos y editables, del más reciente al más antiguo.</p></div></div>
-    <div class="toolbar"><div class="search"><span>🔎</span><input id="directorySearch" placeholder="Buscar por tema, tipo, fecha o lugar"></div><select id="directoryFilter" style="padding:11px;border:1px solid var(--line);border-radius:12px"><option value="">Todos</option><option>RECIBIDO</option><option>ASIGNADO</option><option>EJECUTADO</option></select></div>
+    <div class="toolbar"><div class="search"><span>🔎</span><input id="directorySearch" placeholder="Buscar por tema, tipo, fecha o lugar"></div><select id="directoryFilter" style="padding:11px;border:1px solid var(--line);border-radius:12px"><option value="">Todos</option><option>ASIGNADO</option><option>EJECUTADO</option></select></div>
     <div id="directoryList" class="event-list"></div>
   </section>
 
   <section id="view-general" class="section">
-    <div class="hero"><div><h1>Panel general</h1><p>Histórico de eventos cerrados. Solo lectura.</p></div></div>
+    <div class="hero"><div><h1>Panel general</h1><p>Histórico de eventos cerrados y suspendidos. Solo lectura.</p></div></div>
     <div class="toolbar"><div class="search"><span>🔎</span><input id="generalSearch" placeholder="Buscar en el histórico"></div></div>
     <div id="generalList" class="event-list"></div>
   </section>
@@ -113,7 +113,6 @@
           <div class="field"><label>Enlace de ubicación · opcional</label><input id="fLinkUbicacion" type="url" inputmode="url" placeholder="Pegue aquí el enlace de Google Maps o Waze"></div>
         </div>
         <div class="field"><label>Asignado(s)</label><div id="newEventPeople" class="people-grid"></div></div>
-        <div class="field"><label>Estado inicial</label><div><span class="status-pill s-received">RECIBIDO</span></div><div class="hint">Se crea por defecto como RECIBIDO. Puede quedar sin asignación hasta que exista disposición del director/jefe.</div></div>
         <div class="field"><label>Observación extraída / inicial</label><textarea id="fObservaciones"></textarea></div>
         <div class="form-actions"><button class="secondary" id="cancelGenerated">Cancelar</button><button class="primary" id="saveNewEvent">Guardar en directorio</button></div>
       </div>
