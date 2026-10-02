@@ -836,6 +836,43 @@ function buildEvidenceFileName(eventDate,legend,originalName){
   return `${date} - ${cleanLegend}${ext}`;
 }
 
+function getEvidenceMeta(v){
+  const text=String(v?.texto||'').trim();
+
+  let m=text.match(/^\[ASISTENCIA\]\s*(.*)$/i);
+  if(m){
+    return {
+      category:'ASISTENCIA',
+      commitmentId:'',
+      legend:(m[1]||'').trim()||'Asistencia del funcionario'
+    };
+  }
+
+  m=text.match(/^\[COMPROMISO:([^\]]+)\]\s*(.*)$/i);
+  if(m){
+    return {
+      category:'COMPROMISO',
+      commitmentId:String(m[1]||'').trim(),
+      legend:(m[2]||'').trim()||'Evidencia de compromiso'
+    };
+  }
+
+  return {
+    category:'OTRA',
+    commitmentId:'',
+    legend:text||String(v?.nombre||'Evidencia').trim()||'Evidencia'
+  };
+}
+
+function hasAttendancePhoto(e){
+  return (e?.evidencias||[]).some(v=>{
+    const meta=getEvidenceMeta(v);
+    return meta.category==='ASISTENCIA' &&
+      String(v?.tipo||'').toUpperCase()==='CAPTURA' &&
+      !!v?.url;
+  });
+}
+
 function copyEventLink(text,label){
   const value=String(text||'').trim();
   if(!value)return;
@@ -962,6 +999,7 @@ function copyEventSheet(e){
 function eventInfoView(e){
   const asignados=(e.asignados||[]).filter(Boolean);
   const asignacionesMeta=e.asignacionesMeta||{};
+  const evidencias=(e.evidencias||[]).filter(Boolean);
   const {reunionUrl,ubicacionUrl}=getEventLinks(e);
 
   function infoItem(label,value){
@@ -996,6 +1034,14 @@ function eventInfoView(e){
     '</div>';
   }
 
+  function photoEvidenceLink(v,label){
+    const meta=getEvidenceMeta(v);
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;margin-top:8px">'+
+      '<div style="font-weight:800;color:var(--navy);margin-bottom:4px">'+esc(meta.legend||label)+'</div>'+
+      '<a class="secondary" href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">📷 '+esc(label)+'</a>'+
+    '</div>';
+  }
+
   const asignadosHtml=asignados.length
     ? asignados.map(nombre=>{
         const hora=formatActionTime(asignacionesMeta[nombre]);
@@ -1007,6 +1053,25 @@ function eventInfoView(e){
         '</div>';
       }).join('')
     : '<span class="muted">Sin asignar</span>';
+
+  const attendancePhotos=evidencias.filter(v=>{
+    const meta=getEvidenceMeta(v);
+    return meta.category==='ASISTENCIA' && !!v.url;
+  });
+
+  const commitmentPhotos=evidencias.filter(v=>{
+    const meta=getEvidenceMeta(v);
+    return meta.category==='COMPROMISO' && !!v.url;
+  });
+
+  const otherEvidence=evidencias.filter(v=>{
+    const meta=getEvidenceMeta(v);
+    return meta.category==='OTRA' && !!v.url;
+  });
+
+  const commitmentsById=new Map(
+    (e.compromisos||[]).map(c=>[String(c.id||''),c])
+  );
 
   let html=
     '<div style="display:flex;justify-content:flex-start;margin-bottom:12px">'+
@@ -1024,6 +1089,62 @@ function eventInfoView(e){
       '</div>'+
     '</div>';
 
+  html+='<div class="card" style="margin-top:12px">'+
+    '<div class="card-title">📷 Evidencias fotográficas</div>'+
+    '<div style="font-weight:800;color:var(--navy);margin-top:4px">1. Asistencia del funcionario</div>';
+
+  if(attendancePhotos.length){
+    html+=attendancePhotos.map((v,i)=>
+      photoEvidenceLink(v,attendancePhotos.length>1?'Ver foto de asistencia '+(i+1):'Ver foto de asistencia')
+    ).join('');
+  }else{
+    const suspended=String(e.estadoAdmin||'').toUpperCase()==='SUSPENDIDO';
+    html+='<div class="muted" style="margin-top:6px">'+
+      (suspended
+        ? 'No requerida para un evento suspendido.'
+        : 'No consta fotografía de asistencia clasificada.')+
+    '</div>';
+  }
+
+  html+='<div style="font-weight:800;color:var(--navy);margin-top:16px">2. Evidencias de compromisos cumplidos</div>';
+
+  if(commitmentPhotos.length){
+    html+=commitmentPhotos.map(v=>{
+      const meta=getEvidenceMeta(v);
+      const c=commitmentsById.get(meta.commitmentId);
+      const detail=c
+        ? (c.compromiso+(c.responsable?' · '+c.responsable:''))
+        : meta.legend;
+
+      return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;margin-top:8px">'+
+        '<div style="font-weight:800;color:var(--navy);margin-bottom:3px">'+esc(detail)+'</div>'+
+        (meta.legend&&meta.legend!==detail
+          ? '<div class="muted" style="font-size:12px;margin-bottom:6px">'+esc(meta.legend)+'</div>'
+          : '')+
+        '<a class="secondary" href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">📷 Ver evidencia del compromiso</a>'+
+      '</div>';
+    }).join('');
+  }else{
+    const hasCommitments=(e.compromisos||[]).some(c=>c&&c.compromiso);
+    html+='<div class="muted" style="margin-top:6px">'+
+      (hasCommitments
+        ? 'No hay evidencias fotográficas de compromisos registradas.'
+        : 'No existen compromisos registrados para este evento.')+
+    '</div>';
+  }
+
+  if(otherEvidence.length){
+    html+='<div style="font-weight:800;color:var(--navy);margin-top:16px">Otras evidencias</div>'+
+      otherEvidence.map(v=>{
+        const meta=getEvidenceMeta(v);
+        return '<div style="margin-top:8px">'+
+          '<a href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer">'+esc(meta.legend)+'</a>'+
+        '</div>';
+      }).join('');
+  }
+
+  html+='</div>';
+
   if(e.observaciones){
     html+='<div class="card" style="margin-top:12px">'+
       '<div class="card-title">💬 Observaciones</div>'+
@@ -1039,7 +1160,6 @@ function eventInfoView(e){
 
   return html;
 }
-
 function openEventInfo(id){
   const e=state.events.find(x=>x.id===id);
   if(!e)return;
@@ -1121,20 +1241,31 @@ function openEvent(id){
     const assignments=state.assignables.map(n=>`<label class="person-check"><input class="edit-assignee" type="checkbox" value="${esc(n)}" ${(e.asignados||[]).includes(n)?'checked':''}>${esc(n)}</label>`).join('');
     const comps=(e.compromisos||[]).map(commitRow).join('');
     const evid=(e.evidencias||[]).map(v=>{
+      const meta=getEvidenceMeta(v);
+      const heading=
+        meta.category==='ASISTENCIA'
+          ? 'Asistencia'
+          : (meta.category==='COMPROMISO'?'Compromiso':'Evidencia');
+
       if(v.url){
-        const legend=v.texto||v.nombre||'Evidencia';
         return `<div class="evidence-item">
-          <b>${esc(v.tipo||'Evidencia')}</b><br>
-          <strong>${esc(legend)}</strong><br>
-          <a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">Abrir archivo</a>
+          <b>${esc(heading)}</b><br>
+          <strong>${esc(meta.legend)}</strong><br>
+          <a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">Abrir foto / archivo</a>
         </div>`;
       }
 
       return `<div class="evidence-item">
-        <b>${esc(v.tipo||'Evidencia')}</b><br>
-        ${esc(v.texto||v.nombre||'Texto registrado')}
+        <b>${esc(heading)}</b><br>
+        ${esc(meta.legend||'Texto registrado')}
       </div>`;
     }).join('');
+
+    const commitmentOptions=(e.compromisos||[])
+      .filter(c=>c&&c.compromiso&&String(c.estado||'').toUpperCase()==='EJECUTADO')
+      .map(c=>`<option value="${esc(c.id||'')}">${esc(c.compromiso)}${c.responsable?' · '+esc(c.responsable):''}</option>`)
+      .join('');
+
     const finalState=String(e.estadoAdmin||'').toUpperCase();
     const closedNote=ro
       ? `<div class="card" style="margin-top:12px"><b>${finalState==='SUSPENDIDO'?'⏸ Evento suspendido':'✓ Evento cerrado'}</b><div class="muted">Registro histórico de solo lectura.</div></div>`
@@ -1167,24 +1298,64 @@ function openEvent(id){
           <div id="commitments">${comps||'<div class="empty" id="noCommitments">Sin compromisos registrados.</div>'}</div>
         </div>
         <div class="card" style="margin-top:12px">
-          <div class="card" style="margin-top:12px">
-          <div class="card-title">📎 Evidencia</div>
-          <div class="evidence-grid">
+          <div class="card-title">📷 Evidencias fotográficas</div>
+          <div class="topnote">La fotografía de asistencia del funcionario es obligatoria para poder cerrar el evento.</div>
+
+          <div class="grid grid-2">
             <div>
+              <b>1. Asistencia del funcionario · obligatoria</b>
+
               <div class="field">
-                <label>Leyenda de la evidencia · máx. 50 caracteres</label>
-                <input id="evidenceLegend" type="text" maxlength="50" placeholder="Ej.: Reunión exitosa">
-                <div class="hint" id="evidenceLegendCount">0 / 50</div>
+                <label>Leyenda · máx. 50 caracteres</label>
+                <input id="attendanceEvidenceLegend" type="text" maxlength="50" placeholder="Ej.: Asistencia a reunión">
+                <div class="hint" id="attendanceEvidenceLegendCount">0 / 50</div>
               </div>
+
               <div class="field">
-                <label>Archivo</label>
-                <input id="evidenceFile" type="file" accept="image/*,.pdf,application/pdf">
+                <label>Fotografía</label>
+                <input id="attendanceEvidenceFile" type="file" accept="image/*">
               </div>
-              <button class="secondary wide" id="addFileEvidence">📷 / PDF / Captura · Subir</button>
+
+              <button class="secondary wide" id="addAttendanceEvidence" type="button">Subir foto de asistencia</button>
             </div>
-            <div><div style="display:flex;gap:8px;align-items:center"><div class="note-icon">🗒️</div><b>Texto manual</b></div><div class="field"><textarea id="evidenceText" placeholder="Escriba aquí la evidencia o constancia manual..."></textarea></div><button class="secondary wide" id="addTextEvidence">Añadir texto como evidencia</button></div>
+
+            <div>
+              <b>2. Compromiso cumplido · si aplica</b>
+
+              <div class="field">
+                <label>Compromiso ejecutado</label>
+                <select id="commitmentEvidenceSelect" >
+                  <option value="">Seleccione...</option>
+                  ${commitmentOptions}
+                </select>
+                
+              </div>
+
+              <div class="field">
+                <label>Leyenda · máx. 50 caracteres</label>
+                <input id="commitmentEvidenceLegend" type="text" maxlength="50" placeholder="Ej.: Compromiso cumplido">
+                <div class="hint" id="commitmentEvidenceLegendCount">0 / 50</div>
+              </div>
+
+              <div class="field">
+                <label>Fotografía</label>
+                <input id="commitmentEvidenceFile" type="file" accept="image/*">
+              </div>
+
+              <button class="secondary wide" id="addCommitmentEvidence" type="button" >Subir foto del compromiso</button>
+            </div>
           </div>
-          <div id="evidenceList" class="evidence-grid" style="margin-top:10px">${evid||'<div class="muted">Aún no hay evidencias.</div>'}</div>
+
+          <div class="card-title" style="margin-top:16px">Evidencias registradas</div>
+          <div id="evidenceList" class="evidence-grid">${evid}</div>
+
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+            <b>Constancia textual adicional</b>
+            <div class="field">
+              <textarea id="evidenceText" placeholder="Escriba aquí una constancia manual adicional..."></textarea>
+            </div>
+            <button class="secondary" id="addTextEvidence" type="button">Añadir texto como evidencia</button>
+          </div>
         </div>
         <div class="card" style="margin-top:12px"><div class="card-title">💬 Observaciones</div><div class="field"><textarea id="editObs">${esc(e.observaciones||'')}</textarea></div></div>
         ${!ro ? `
@@ -1268,21 +1439,31 @@ function bindEventEditor(e, ro){
     addTextEvidenceBtn.onclick = () => addEvidence('TEXTO');
   }
 
-  const evidenceLegend=$('#evidenceLegend');
-  const evidenceLegendCount=$('#evidenceLegendCount');
+  function bindLegendCounter(inputId,countId){
+    const input=$(inputId);
+    const count=$(countId);
 
-  if(evidenceLegend&&evidenceLegendCount){
-    const updateLegendCount=()=>{
-      evidenceLegendCount.textContent=`${evidenceLegend.value.length} / 50`;
+    if(!input||!count)return;
+
+    const update=()=>{
+      count.textContent=`${input.value.length} / 50`;
     };
 
-    evidenceLegend.oninput=updateLegendCount;
-    updateLegendCount();
+    input.oninput=update;
+    update();
   }
 
-  const addFileEvidenceBtn = $('#addFileEvidence');
-  if (addFileEvidenceBtn) {
-    addFileEvidenceBtn.onclick = () => addEvidence('ARCHIVO');
+  bindLegendCounter('#attendanceEvidenceLegend','#attendanceEvidenceLegendCount');
+  bindLegendCounter('#commitmentEvidenceLegend','#commitmentEvidenceLegendCount');
+
+  const attendanceBtn=$('#addAttendanceEvidence');
+  if(attendanceBtn){
+    attendanceBtn.onclick=()=>addEvidence('ASISTENCIA');
+  }
+
+  const commitmentBtn=$('#addCommitmentEvidence');
+  if(commitmentBtn){
+    commitmentBtn.onclick=()=>addEvidence('COMPROMISO');
   }
 
   const saveBtn = $('#saveEventChanges');
@@ -1335,39 +1516,50 @@ function bindEventEditor(e, ro){
     return commitments;
   }
   async function addEvidence(kind) {
-  const e = state.events.find(x => x.id === state.currentEventId);
-  if (!e) return;
+  const e=state.events.find(x=>x.id===state.currentEventId);
+  if(!e)return;
 
-  if (kind === 'ARCHIVO' && uploadingEvidence) return;
+  if(kind!=='TEXTO'&&uploadingEvidence)return;
 
-  let payload = {
-    eventId: e.id,
-    tipo: kind,
-    nombre: '',
-    texto: '',
-    dataUrl: '',
-    mimeType: ''
+  let payload={
+    eventId:e.id,
+    tipo:kind,
+    nombre:'',
+    texto:'',
+    dataUrl:'',
+    mimeType:''
   };
 
-  let btn = null;
-  let textoOriginal = '';
-  let dotsTimer = null;
+  let btn=null;
+  let contenidoOriginal='';
+  let dotsTimer=null;
 
-  try {
-    if (kind === 'TEXTO') {
-      payload.texto = $('#evidenceText').value.trim();
-      payload.nombre = 'Nota manual';
+  try{
+    if(kind==='TEXTO'){
+      payload.texto=$('#evidenceText').value.trim();
+      payload.nombre='Nota manual';
 
-      if (!payload.texto) {
+      if(!payload.texto){
         toast('Escriba el texto de la evidencia.');
         return;
       }
+    }else{
+      const isAttendance=kind==='ASISTENCIA';
+      const legendInput=isAttendance
+        ? $('#attendanceEvidenceLegend')
+        : $('#commitmentEvidenceLegend');
+      const fileInput=isAttendance
+        ? $('#attendanceEvidenceFile')
+        : $('#commitmentEvidenceFile');
 
-    } else {
-      const legend=$('#evidenceLegend').value.trim();
+      btn=isAttendance
+        ? $('#addAttendanceEvidence')
+        : $('#addCommitmentEvidence');
+
+      const legend=(legendInput?.value||'').trim();
 
       if(!legend){
-        toast('Escriba una leyenda para la evidencia.');
+        toast('Escriba una leyenda para la fotografía.');
         return;
       }
 
@@ -1376,71 +1568,113 @@ function bindEventEditor(e, ro){
         return;
       }
 
-      const f = $('#evidenceFile').files[0];
+      let commitmentId='';
 
-      if (!f) {
-        toast('Seleccione un archivo.');
+      if(!isAttendance){
+        commitmentId=$('#commitmentEvidenceSelect')?.value||'';
+
+        if(!commitmentId){
+          toast('Seleccione el compromiso ejecutado.');
+          return;
+        }
+
+        const commitment=(e.compromisos||[]).find(c=>String(c.id||'')===String(commitmentId));
+
+        if(!commitment||String(commitment.estado||'').toUpperCase()!=='EJECUTADO'){
+          toast('El compromiso debe estar marcado como EJECUTADO.');
+          return;
+        }
+      }
+
+      const file=fileInput?.files?.[0];
+
+      if(!file){
+        toast('Seleccione una fotografía.');
         return;
       }
 
-      if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      if(!String(file.type||'').startsWith('image/')){
+        toast('La evidencia debe ser una fotografía.');
+        return;
+      }
+
+      if(file.size>MAX_UPLOAD_MB*1024*1024){
         toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);
         return;
       }
 
-      btn = $('#addFileEvidence');
-      textoOriginal = btn.textContent;
+      uploadingEvidence=true;
+      contenidoOriginal=btn?btn.innerHTML:'';
 
-      uploadingEvidence = true;
-      btn.disabled = true;
+      if(btn){
+        btn.disabled=true;
 
-      let puntos = 0;
+        let puntos=0;
+        const actualizarTexto=()=>{
+          puntos=(puntos%3)+1;
+          btn.textContent='Subiendo'+'.'.repeat(puntos);
+        };
 
-      const actualizarTexto = () => {
-        puntos = (puntos % 3) + 1;
-        btn.textContent =
-          '📷 / PDF / Captura · Subiendo' + '.'.repeat(puntos);
-      };
+        actualizarTexto();
+        dotsTimer=setInterval(actualizarTexto,450);
+      }
 
-      actualizarTexto();
-      dotsTimer = setInterval(actualizarTexto, 450);
+      const marker=isAttendance
+        ? '[ASISTENCIA]'
+        : `[COMPROMISO:${commitmentId}]`;
 
-      payload.texto = legend;
-      payload.nombre = buildEvidenceFileName(e.fecha,legend,f.name);
-      payload.mimeType = f.type;
-      payload.dataUrl = await fileToDataURL(f);
+      payload.texto=`${marker} ${legend}`;
+      payload.nombre=buildEvidenceFileName(
+        e.fecha,
+        `${isAttendance?'ASISTENCIA':'COMPROMISO'} - ${legend}`,
+        file.name
+      );
+      payload.mimeType=file.type;
+      payload.dataUrl=await fileToDataURL(file);
+      payload.tipo='CAPTURA';
 
-      payload.tipo =
-        f.type === 'application/pdf'
-          ? 'PDF'
-          : (f.type.startsWith('image/') ? 'CAPTURA' : 'ARCHIVO');
+      // Campos auxiliares para una futura ampliación del backend.
+      payload.categoria=isAttendance?'ASISTENCIA':'COMPROMISO';
+      payload.compromisoId=commitmentId;
     }
 
-    const ev = await serverCall('uploadEvidence', payload);
+    const ev=await serverCall('uploadEvidence',payload);
+    const savedEvidence={...(ev||{})};
 
-e.evidencias = e.evidencias || [];
-e.evidencias.push(ev);
+    // Garantiza la clasificación en la sesión actual aun si el backend
+    // devuelve solamente los campos básicos de EVIDENCIAS.
+    if(!savedEvidence.texto)savedEvidence.texto=payload.texto;
+    if(!savedEvidence.nombre)savedEvidence.nombre=payload.nombre;
+    if(!savedEvidence.tipo)savedEvidence.tipo=payload.tipo;
+    if(!savedEvidence.eventId)savedEvidence.eventId=e.id;
 
-if (LOCAL_MODE) {
-  persistLocal();
-}
+    e.evidencias=e.evidencias||[];
+    e.evidencias.push(savedEvidence);
 
-openEvent(e.id);
-toast('Evidencia añadida correctamente.');
+    if(LOCAL_MODE){
+      persistLocal();
+    }
 
-  } catch (err) {
+    openEvent(e.id);
+    toast(kind==='ASISTENCIA'
+      ? 'Foto de asistencia añadida correctamente.'
+      : (kind==='COMPROMISO'
+        ? 'Evidencia del compromiso añadida correctamente.'
+        : 'Evidencia añadida correctamente.'));
+
+  }catch(err){
     console.error(err);
     toast('No se pudo subir la evidencia.');
 
-  } finally {
-    if (dotsTimer) clearInterval(dotsTimer);
+  }finally{
+    if(dotsTimer)clearInterval(dotsTimer);
 
-    if (kind === 'ARCHIVO') {
-      uploadingEvidence = false;
+    if(kind!=='TEXTO'){
+      uploadingEvidence=false;
 
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = textoOriginal;
+      if(btn&&btn.isConnected){
+        btn.disabled=false;
+        btn.innerHTML=contenidoOriginal;
       }
     }
   }
@@ -1545,8 +1779,8 @@ return true;
   const e=state.events.find(x=>x.id===state.currentEventId);
   if(!e)return;
 
-  if(s==='CERRADO'&&!(e.evidencias||[]).length){
-    toast('No se puede cerrar sin evidencia.');
+  if(s==='CERRADO'&&!hasAttendancePhoto(e)){
+    toast('No se puede cerrar el evento sin una fotografía de asistencia del funcionario.');
     return;
   }
 
