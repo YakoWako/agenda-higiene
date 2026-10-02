@@ -132,20 +132,19 @@
   <div class="topnote" style="margin-top:14px">La URL del backend puede quedar preconfigurada en <b>config.js</b>. La clave de acceso se guarda únicamente en este dispositivo.</div>
   <div class="field"><label>URL del Web App de Apps Script</label><input id="backendUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
   <div class="field"><label>Clave de acceso</label><input id="accessKey" type="password" autocomplete="current-password" placeholder="Clave definida en la hoja CONFIG"></div>
-  <div id="connectionState" class="hint">Sin comprobar.</div>
+  <div id="connectionState" class="hint">Sin comprobar.</div><div id="connectionRole" class="hint" style="margin-top:6px;font-weight:800">Perfil: LECTURA</div>
   <div class="form-actions"><button class="secondary" id="clearConnection">Borrar conexión</button><button class="primary" id="saveConnection">Guardar y comprobar</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=4"></script>
-<script src="api.js?v=4"></script>
-<script src="app.js?v=4"></script>
-<script src="roles.js?v=2"></script>
+<script src="config.js?v=5"></script>
+<script src="api.js?v=5"></script>
+<script src="app.js?v=5"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
-        .register('./sw.js?v=5', { scope: './', updateViaCache: 'none' })
+        .register('./sw.js?v=6', { scope: './', updateViaCache: 'none' })
         .then(registration => registration.update())
         .catch(error => console.warn('No se pudo actualizar el Service Worker:', error));
     });
