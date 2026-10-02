@@ -5,6 +5,8 @@
   const APP_TZ = 'America/Guayaquil';
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null};
   let dailySelectedDate = '';
+  const GENERAL_PAGE_SIZE = 20;
+  let generalPage = 1;
   let savingNewEvent = false;
   let savingEventChanges = false;
   let uploadingEvidence = false;
@@ -427,7 +429,7 @@ function eventStatePill(e){
     $('#tipo').onchange=()=>$('#tipoOtroWrap').classList.toggle('hidden',$('#tipo').value!=='Otro');
     $('#pickFileBtn').onclick=()=>$('#sourceFile').click();$('#fTema').oninput=updateGeneratedHeader;$('#fFecha').oninput=updateGeneratedHeader; $('#sourceFile').onchange=()=>$('#fileName').textContent=$('#sourceFile').files[0]?.name||'Sin archivo seleccionado';
     $('#processBtn').onclick=processInput; $('#cancelGenerated').onclick=()=>$('#generatedForm').classList.add('hidden'); $('#saveNewEvent').onclick=saveNewEvent;
-    $('#directorySearch').oninput=renderDirectory; $('#directoryFilter').onchange=renderDirectory; $('#generalSearch').oninput=renderGeneral;
+    $('#directorySearch').oninput=renderDirectory; $('#directoryFilter').onchange=renderDirectory; $('#generalSearch').oninput=()=>{generalPage=1;renderGeneral();};
 
     $('#dailyPrevDay').onclick=()=>{
       dailySelectedDate=shiftISODate(dailySelectedDate||todayISO(),-1);
@@ -510,7 +512,77 @@ function eventCard(e,readOnly=false){
     });
   }
   function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>!['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
-  function renderGeneral(){const q=($('#generalSearch').value||'').toLowerCase();let rows=state.events.filter(e=>['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#generalList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,true)).join(''):'<div class="empty">Aún no existen eventos cerrados o suspendidos.</div>';attachCards(el,'info');}
+  function renderGeneral(){
+    const q=($('#generalSearch').value||'').toLowerCase();
+
+    const rows=state.events
+      .filter(e=>['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase()))
+      .filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q)))
+      .sort(sortRecent);
+
+    const el=$('#generalList');
+    const pagination=$('#generalPagination');
+
+    if(!rows.length){
+      generalPage=1;
+      el.innerHTML='<div class="empty">Aún no existen eventos cerrados o suspendidos.</div>';
+      pagination.innerHTML='';
+      attachCards(el,'info');
+      return;
+    }
+
+    const total=rows.length;
+    const totalPages=Math.max(1,Math.ceil(total/GENERAL_PAGE_SIZE));
+
+    if(generalPage>totalPages) generalPage=totalPages;
+    if(generalPage<1) generalPage=1;
+
+    const start=(generalPage-1)*GENERAL_PAGE_SIZE;
+    const end=Math.min(start+GENERAL_PAGE_SIZE,total);
+    const pageRows=rows.slice(start,end);
+
+    el.innerHTML=pageRows.map(e=>eventCard(e,true)).join('');
+    attachCards(el,'info');
+
+    pagination.innerHTML=`
+      <div class="pagination-info">
+        Mostrando ${start+1}–${end} de ${total} eventos
+      </div>
+
+      <div class="pagination-controls">
+        <button class="secondary" id="generalPrevPage" type="button" ${generalPage===1?'disabled':''}>
+          ‹ Anterior
+        </button>
+
+        <strong>${generalPage} / ${totalPages}</strong>
+
+        <button class="secondary" id="generalNextPage" type="button" ${generalPage===totalPages?'disabled':''}>
+          Siguiente ›
+        </button>
+      </div>
+    `;
+
+    const prev=$('#generalPrevPage');
+    const next=$('#generalNextPage');
+
+    if(prev){
+      prev.onclick=()=>{
+        if(generalPage<=1)return;
+        generalPage--;
+        renderGeneral();
+        window.scrollTo({top:0,behavior:'smooth'});
+      };
+    }
+
+    if(next){
+      next.onclick=()=>{
+        if(generalPage>=totalPages)return;
+        generalPage++;
+        renderGeneral();
+        window.scrollTo({top:0,behavior:'smooth'});
+      };
+    }
+  }
   function renderDaily(){
     const selected=dailySelectedDate||todayISO();
     dailySelectedDate=selected;
@@ -1017,7 +1089,7 @@ function openEvent(id){
 
   state.currentEventId = id;
 
-  const readOnly = e.estadoAdmin === 'CERRADO';
+  const readOnly = ['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase());
 
   $('#drawerTitle').textContent =
     e.tema || e.tipo || 'Evento';
@@ -1058,7 +1130,10 @@ function openEvent(id){
         ${esc(v.texto||v.nombre||'Texto registrado')}
       </div>`;
     }).join('');
-    const closedNote=ro?'<div class="card" style="margin-top:12px"><b>✓ Evento cerrado</b><div class="muted">Registro histórico de solo lectura.</div></div>':'';
+    const finalState=String(e.estadoAdmin||'').toUpperCase();
+    const closedNote=ro
+      ? `<div class="card" style="margin-top:12px"><b>${finalState==='SUSPENDIDO'?'⏸ Evento suspendido':'✓ Evento cerrado'}</b><div class="muted">Registro histórico de solo lectura.</div></div>`
+      : '';
     const {reunionUrl,ubicacionUrl}=getEventLinks(e);
     const linkActions=(reunionUrl||ubicacionUrl)?`
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
@@ -1479,6 +1554,8 @@ toast('Cambios guardados correctamente.');
   await saveEventChanges(s);
 
   if(s==='CERRADO'||s==='SUSPENDIDO'){
+    generalPage=1;
+    renderGeneral();
     closeDrawer();
     showView('general');
   }
