@@ -1131,12 +1131,12 @@ function openEvent(id){
     </button>
   `}
 
-  <button class="event-action-btn" id="saveEventChanges" type="button">
+  <button class="event-action-btn event-action-primary" id="saveEventChanges" type="button">
     <span>GUARDAR</span>
     <strong>CAMBIOS</strong>
   </button>
 
-  <button class="event-action-btn" id="closeEventBtn" type="button">
+  <button class="event-action-btn event-action-success" id="closeEventBtn" type="button">
     <span>CERRAR</span>
     <strong>EVENTO</strong>
   </button>
