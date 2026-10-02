@@ -136,18 +136,27 @@
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=6"></script>
-<script src="api.js?v=6"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=10"></script>
+<script src="api.js?v=10"></script>
+<script src="app.js?v=10"></script>
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('./sw.js?v=9', { scope: './', updateViaCache: 'none' })
-        .then(registration => registration.update())
-        .catch(error => console.warn('No se pudo actualizar el Service Worker:', error));
-    });
-  }
+  window.addEventListener('load', () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(registrations => registrations.forEach(registration => registration.unregister()))
+        .catch(() => {});
+    }
+
+    if ('caches' in window) {
+      caches.keys()
+        .then(keys => Promise.all(
+          keys
+            .filter(key => key.startsWith('agenda-higiene-'))
+            .map(key => caches.delete(key))
+        ))
+        .catch(() => {});
+    }
+  });
 </script>
 </body>
 </html>
