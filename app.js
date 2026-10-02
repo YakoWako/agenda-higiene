@@ -1324,11 +1324,11 @@ function openEvent(id){
 
               <div class="field">
                 <label>Compromiso ejecutado</label>
-                <select id="commitmentEvidenceSelect" >
+                <select id="commitmentEvidenceSelect" ${commitmentOptions?'':'disabled'}>
                   <option value="">Seleccione...</option>
                   ${commitmentOptions}
                 </select>
-                
+                ${commitmentOptions?'':'<div class="hint">Marque el compromiso como EJECUTADO y guarde los cambios antes de cargar su foto.</div>'}
               </div>
 
               <div class="field">
@@ -1342,12 +1342,12 @@ function openEvent(id){
                 <input id="commitmentEvidenceFile" type="file" accept="image/*">
               </div>
 
-              <button class="secondary wide" id="addCommitmentEvidence" type="button" >Subir foto del compromiso</button>
+              <button class="secondary wide" id="addCommitmentEvidence" type="button" ${commitmentOptions?'':'disabled'}>Subir foto del compromiso</button>
             </div>
           </div>
 
           <div class="card-title" style="margin-top:16px">Evidencias registradas</div>
-          <div id="evidenceList" class="evidence-grid">${evid}</div>
+          <div id="evidenceList" class="evidence-grid">${evid||'<div class="muted">Aún no hay evidencias.</div>'}</div>
 
           <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
             <b>Constancia textual adicional</b>
