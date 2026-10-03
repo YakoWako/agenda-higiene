@@ -1568,9 +1568,154 @@ function openEvent(id){
         <option value="ASIGNADO" ${currentState==='ASIGNADO'?'selected':''}>ASIGNADO</option>
         <option value="EJECUTADO" ${currentState==='EJECUTADO'?'selected':''}>EJECUTADO</option>
       </select>
+      <button class="secondary copy-commitment-btn" type="button" title="Copiar compromiso para WhatsApp" aria-label="Copiar compromiso">📋</button>
       <button class="remove-btn" title="Eliminar compromiso">🗑</button>
     </div>`;
   }
+function getCommitmentShareData(e,row){
+  const compromiso=(row?.querySelector('.c-text')?.value||'').trim();
+  const responsable=(row?.querySelector('.c-resp')?.value||'').trim();
+  const estado=(row?.querySelector('.c-state')?.value||'ASIGNADO').trim().toUpperCase();
+
+  const observacionesEl=$('#editObservaciones');
+  const observaciones=observacionesEl
+    ? observacionesEl.value.trim()
+    : String(e?.observaciones||'').trim();
+
+  const {ubicacionUrl}=getEventLinks(e||{});
+
+  return {
+    compromiso,
+    responsable,
+    estado,
+    observaciones,
+    ubicacionUrl,
+    tema:e?.tema||e?.tipo||'Evento',
+    tipo:e?.tipo||'—',
+    fecha:fmtDate(e?.fecha),
+    hora:e?.hora||'Sin hora',
+    lugar:e?.lugar||'—'
+  };
+}
+
+function buildCommitmentShareText(e,row){
+  const d=getCommitmentShareData(e,row);
+
+  const lines=[
+    '*AGENDA HIGIENE · COMPROMISO*',
+    '',
+    '*Evento:* '+d.tema,
+    '*Tipo:* '+d.tipo,
+    '*Fecha:* '+d.fecha,
+    '*Hora:* '+d.hora,
+    '*Lugar:* '+d.lugar
+  ];
+
+  if(d.observaciones){
+    lines.push('*Contexto general:* '+d.observaciones);
+  }
+
+  lines.push(
+    '',
+    '*Compromiso adquirido:* '+(d.compromiso||'—'),
+    '*Responsable asignado:* '+(d.responsable||'Sin asignar'),
+    '*Estado:* '+d.estado
+  );
+
+  if(d.ubicacionUrl){
+    lines.push('*Ubicación:* '+d.ubicacionUrl);
+  }
+
+  lines.push(
+    '',
+    'Con base en el evento señalado, queda asignado el compromiso indicado para su cumplimiento y seguimiento.'
+  );
+
+  return lines.join('\n');
+}
+
+function buildCommitmentShareHtml(e,row){
+  const d=getCommitmentShareData(e,row);
+  const rows=[
+    ['Evento',d.tema],
+    ['Tipo',d.tipo],
+    ['Fecha',d.fecha],
+    ['Hora',d.hora],
+    ['Lugar',d.lugar]
+  ];
+
+  if(d.observaciones) rows.push(['Contexto general',d.observaciones]);
+
+  rows.push(
+    ['Compromiso adquirido',d.compromiso||'—'],
+    ['Responsable asignado',d.responsable||'Sin asignar'],
+    ['Estado',d.estado]
+  );
+
+  if(d.ubicacionUrl) rows.push(['Ubicación',d.ubicacionUrl]);
+
+  return '<div><strong>AGENDA HIGIENE · COMPROMISO</strong><br><br>'+
+    rows.map(([label,value])=>
+      '<strong>'+esc(label)+':</strong> '+esc(value)
+    ).join('<br>')+
+    '<br><br>Con base en el evento señalado, queda asignado el compromiso indicado para su cumplimiento y seguimiento.</div>';
+}
+
+function copyCommitmentContext(e,row){
+  const data=getCommitmentShareData(e,row);
+
+  if(!data.compromiso){
+    toast('Escriba el compromiso antes de copiarlo.');
+    return;
+  }
+
+  if(!data.responsable){
+    toast('Seleccione un responsable antes de copiar el compromiso.');
+    return;
+  }
+
+  const text=buildCommitmentShareText(e,row);
+  const html=buildCommitmentShareHtml(e,row);
+
+  if(navigator.clipboard&&window.isSecureContext){
+    if(typeof ClipboardItem!=='undefined'&&navigator.clipboard.write){
+      const item=new ClipboardItem({
+        'text/plain':new Blob([text],{type:'text/plain'}),
+        'text/html':new Blob([html],{type:'text/html'})
+      });
+
+      navigator.clipboard.write([item])
+        .then(()=>toast('Compromiso copiado para WhatsApp.'))
+        .catch(()=>navigator.clipboard.writeText(text)
+          .then(()=>toast('Compromiso copiado para WhatsApp.'))
+          .catch(()=>fallbackCopyEventLink(text,'Compromiso')));
+      return;
+    }
+
+    navigator.clipboard.writeText(text)
+      .then(()=>toast('Compromiso copiado para WhatsApp.'))
+      .catch(()=>fallbackCopyEventLink(text,'Compromiso'));
+    return;
+  }
+
+  fallbackCopyEventLink(text,'Compromiso');
+}
+
+function bindCommitmentActions(e){
+  $('#commitments .copy-commitment-btn').forEach(btn=>{
+    btn.onclick=event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      const row=btn.closest('.commit-row');
+      if(row)copyCommitmentContext(e,row);
+    };
+  });
+
+  $('#commitments .remove-btn').forEach(btn=>{
+    btn.onclick=()=>btn.closest('.commit-row')?.remove();
+  });
+}
+
 function bindEventEditor(e, ro){
   if (ro) return;
 
@@ -1587,11 +1732,11 @@ function bindEventEditor(e, ro){
         commitRow({estado:'ASIGNADO'})
       );
 
-      bindRemoveCommitments();
+      bindCommitmentActions(e);
     };
   }
 
-  bindRemoveCommitments();
+  bindCommitmentActions(e);
 
   const addTextEvidenceBtn = $('#addTextEvidence');
   if (addTextEvidenceBtn) {
@@ -1645,7 +1790,7 @@ function bindEventEditor(e, ro){
     closeBtn.onclick = () => setAdminState('CERRADO',closeBtn);
   }
 }
-  function bindRemoveCommitments(){$$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row').remove())}
+  function bindRemoveCommitments(){$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row')?.remove())}
   function collectCommitments(){
     const rows=$$('#commitments .commit-row');
     const commitments=[];
