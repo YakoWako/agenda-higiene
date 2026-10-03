@@ -765,21 +765,24 @@ const dotsTimer = setInterval(actualizarTexto, 450);
       if(file){payload.fileName=file.name;payload.mimeType=file.type;payload.dataUrl=await fileToDataURL(file);}
       const local=heuristicExtract(rawText,tipo);
       const out=await serverCall('extractDocument',payload);
-      const x={...local,...(out||{})};
+      const ai=out||{};
 
-      // Cuando el usuario pega texto, los campos claramente etiquetados en ese
-      // texto tienen prioridad sobre una extracción genérica del servidor.
-      if(rawText){
-        const hasStructuredMarkers=/\b(?:fecha|hora|lugar|ubicación|ubicacion|sitio|convocados|convoca|asistentes|observaciones|nota|detalle)\b\s*[:\-]?/i.test(rawText);
-        if(hasStructuredMarkers&&local.tema)x.tema=local.tema;
-        if(local.fecha)x.fecha=local.fecha;
-        if(local.hora)x.hora=local.hora;
-        if(local.lugar)x.lugar=local.lugar;
-        if(local.convocados)x.convocados=local.convocados;
-        if(local.observaciones)x.observaciones=local.observaciones;
-        if(local.linkReunion)x.linkReunion=local.linkReunion;
-        if(local.linkUbicacion)x.linkUbicacion=local.linkUbicacion;
-      }
+      // Con la API activa, la interpretación de la IA tiene prioridad.
+      // La heurística local queda solo como respaldo cuando la IA no devuelve
+      // un campo y para recuperar enlaces que todavía no forman parte del
+      // esquema estructurado del backend.
+      const x={
+        tipo:ai.tipo||local.tipo||tipo,
+        tema:ai.tema||local.tema||'',
+        fecha:ai.fecha||local.fecha||'',
+        hora:ai.hora||local.hora||'',
+        lugar:ai.lugar||local.lugar||'',
+        convocados:ai.convocados||local.convocados||'',
+        observaciones:ai.observaciones||local.observaciones||'',
+        rawText:ai.rawText||rawText||local.rawText||'',
+        linkReunion:ai.linkReunion||local.linkReunion||'',
+        linkUbicacion:ai.linkUbicacion||local.linkUbicacion||''
+      };
       $('#fTipo').value=cleanNonLinkField(x.tipo||tipo);$('#fTema').value=cleanNonLinkField(x.tema||'');$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=cleanNonLinkField(x.lugar||'');$('#fConvocados').value=cleanNonLinkField(x.convocados||'');$('#fObservaciones').value=cleanNonLinkField(x.observaciones||'');$('#fLinkReunion').value=normalizeOptionalUrl(x.linkReunion)||'';$('#fLinkUbicacion').value=normalizeOptionalUrl(x.linkUbicacion)||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){
       console.error(e);
