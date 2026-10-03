@@ -1702,7 +1702,7 @@ function copyCommitmentContext(e,row){
 }
 
 function bindCommitmentActions(e){
-  $('#commitments .copy-commitment-btn').forEach(btn=>{
+  document.querySelectorAll('#commitments .copy-commitment-btn').forEach(btn=>{
     btn.onclick=event=>{
       event.preventDefault();
       event.stopPropagation();
@@ -1711,7 +1711,7 @@ function bindCommitmentActions(e){
     };
   });
 
-  $('#commitments .remove-btn').forEach(btn=>{
+  document.querySelectorAll('#commitments .remove-btn').forEach(btn=>{
     btn.onclick=()=>btn.closest('.commit-row')?.remove();
   });
 }
@@ -1790,7 +1790,7 @@ function bindEventEditor(e, ro){
     closeBtn.onclick = () => setAdminState('CERRADO',closeBtn);
   }
 }
-  function bindRemoveCommitments(){$('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row')?.remove())}
+  function bindRemoveCommitments(){document.querySelectorAll('#commitments .remove-btn').forEach(b=>b.onclick=()=>b.closest('.commit-row')?.remove())}
   function collectCommitments(){
     const rows=$$('#commitments .commit-row');
     const commitments=[];
