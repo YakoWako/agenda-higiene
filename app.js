@@ -5,6 +5,8 @@
   const APP_TZ = 'America/Guayaquil';
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
   let dailySelectedDate = '';
+  let currentModule = 'local';
+  let localCurrentView = 'daily';
   const GENERAL_PAGE_SIZE = 20;
   let generalPage = 1;
   let savingNewEvent = false;
@@ -472,7 +474,8 @@ function eventStatePill(e){
   return updated;
 }
   function bind(){
-    $$('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+    $('#moduleNav button[data-module]').forEach(b=>b.onclick=()=>switchModule(b.dataset.module));
+    $('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
     $('#registrador').onchange=()=>$('#registradorOtroWrap').classList.toggle('hidden',$('#registrador').value!=='Otro');
     $('#fuente').onchange=()=>$('#fuenteOtroWrap').classList.toggle('hidden',$('#fuente').value!=='Otro');
     $('#tipo').onchange=()=>$('#tipoOtroWrap').classList.toggle('hidden',$('#tipo').value!=='Otro');
@@ -552,7 +555,46 @@ function eventStatePill(e){
     setConnectionState('Conexión borrada de este dispositivo.','warn');
   }
 
+  function switchModule(module){
+    const allowed=['local','tasa','alcaldia','mingas'];
+    if(!allowed.includes(module)) return;
+
+    currentModule=module;
+
+    $('#moduleNav button[data-module]').forEach(btn=>{
+      btn.classList.toggle('active',btn.dataset.module===module);
+    });
+
+    ['tasa','alcaldia','mingas'].forEach(name=>{
+      const panel=$('#module-'+name);
+      if(panel) panel.classList.toggle('hidden',name!==module);
+    });
+
+    const localNav=$('#localSubnav');
+    const context=$('#moduleContext');
+
+    if(module==='local'){
+      if(localNav) localNav.classList.remove('hidden');
+      if(context) context.textContent='Agenda local · gestión operativa';
+      showView(localCurrentView||'daily');
+      return;
+    }
+
+    if(localNav) localNav.classList.add('hidden');
+    $('.section').forEach(section=>section.classList.remove('active'));
+
+    const labels={
+      tasa:'Eventos con tasa de aseo · calendario y certificaciones',
+      alcaldia:'Agenda de Alcaldía · cartelera diaria',
+      mingas:'Mingas comunitarias · programación y cierre'
+    };
+    if(context) context.textContent=labels[module]||'';
+
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
   function showView(v){
+    localCurrentView=v;
     if((v==='directory'||v==='register')&&!canEdit()){
       toast('Este perfil tiene acceso de solo lectura.');
       return;
