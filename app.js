@@ -781,7 +781,14 @@ const dotsTimer = setInterval(actualizarTexto, 450);
         if(local.linkUbicacion)x.linkUbicacion=local.linkUbicacion;
       }
       $('#fTipo').value=cleanNonLinkField(x.tipo||tipo);$('#fTema').value=cleanNonLinkField(x.tema||'');$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=cleanNonLinkField(x.lugar||'');$('#fConvocados').value=cleanNonLinkField(x.convocados||'');$('#fObservaciones').value=cleanNonLinkField(x.observaciones||'');$('#fLinkReunion').value=normalizeOptionalUrl(x.linkReunion)||'';$('#fLinkUbicacion').value=normalizeOptionalUrl(x.linkUbicacion)||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
-    }catch(e){console.error(e);toast('No se pudo procesar automáticamente. Puede completar la ficha manualmente.');$('#generatedForm').classList.remove('hidden');$('#fTipo').value=tipo;updateGeneratedHeader();}
+    }catch(e){
+      console.error(e);
+      const msg=String(e?.message||e||'Error desconocido');
+      toast('No se pudo procesar: '+msg.slice(0,220));
+      $('#generatedForm').classList.remove('hidden');
+      $('#fTipo').value=tipo;
+      updateGeneratedHeader();
+    }
     finally{
   clearInterval(dotsTimer);
   processingInput = false;
