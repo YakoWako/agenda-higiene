@@ -258,9 +258,24 @@
       if(st) st.textContent='Seleccione primero una certificación PDF.';
       return;
     }
-    if(st) st.textContent='Procesando certificación con IA…';
+
     const btn=q('#tasaProcessPdf');
-    if(btn) btn.disabled=true;
+    const originalText=btn?.textContent||'Procesar certificación con IA';
+    let dotsTimer=null;
+
+    if(st) st.textContent='Procesando certificación con IA…';
+
+    if(btn){
+      btn.disabled=true;
+      let puntos=0;
+      const actualizarTexto=()=>{
+        puntos=(puntos%3)+1;
+        btn.textContent='Procesando'+'.'.repeat(puntos);
+      };
+      actualizarTexto();
+      dotsTimer=setInterval(actualizarTexto,450);
+    }
+
     try{
       const dataUrl=await fileToDataURL(file);
       const out=await serverCall('extractTasaAseo',{
@@ -273,7 +288,11 @@
     }catch(err){
       if(st) st.textContent='No se pudo procesar: '+String(err?.message||err).slice(0,220);
     }finally{
-      if(btn) btn.disabled=false;
+      if(dotsTimer) clearInterval(dotsTimer);
+      if(btn){
+        btn.disabled=false;
+        btn.textContent=originalText;
+      }
     }
   }
 
@@ -284,8 +303,22 @@
       if(st) st.textContent='Complete al menos el nombre y la fecha del evento.';
       return;
     }
+
     const btn=q('#tasaSaveEvent');
-    if(btn) btn.disabled=true;
+    const originalText=btn?.textContent||'Guardar evento';
+    let dotsTimer=null;
+
+    if(btn){
+      btn.disabled=true;
+      let puntos=0;
+      const actualizarTexto=()=>{
+        puntos=(puntos%3)+1;
+        btn.textContent='Guardando'+'.'.repeat(puntos);
+      };
+      actualizarTexto();
+      dotsTimer=setInterval(actualizarTexto,450);
+    }
+
     try{
       const file=q('#tasaPdfFile')?.files?.[0];
       if(file && !data.pdfDataUrl){
@@ -308,7 +341,11 @@
     }catch(err){
       if(st) st.textContent='No se pudo guardar: '+String(err?.message||err).slice(0,220);
     }finally{
-      if(btn) btn.disabled=false;
+      if(dotsTimer) clearInterval(dotsTimer);
+      if(btn){
+        btn.disabled=false;
+        btn.textContent=originalText;
+      }
     }
   }
 
