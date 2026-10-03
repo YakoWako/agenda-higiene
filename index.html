@@ -180,8 +180,8 @@
             <div class="field"><label>Fecha de emisión</label><input id="tasaFechaEmision" type="date"></div>
             <div class="field"><label>Nombre del evento</label><input id="tasaNombreEvento"></div>
             <div class="field"><label>Fecha principal</label><input id="tasaFechaEvento" type="date"></div>
-            <div class="field"><label>Hora inicio</label><input id="tasaHoraInicio" type="time"></div>
-            <div class="field"><label>Hora fin</label><input id="tasaHoraFin" type="time"></div>
+            <div class="field"><label>Hora inicio</label><input id="tasaHoraInicio" placeholder="HH:MM"></div>
+            <div class="field"><label>Hora fin</label><input id="tasaHoraFin" placeholder="HH:MM"></div>
             <div class="field"><label>Lugar</label><input id="tasaLugar"></div>
             <div class="field"><label>Aforo</label><input id="tasaAforo" type="number" min="0"></div>
             <div class="field"><label>Organizador</label><input id="tasaOrganizador"></div>
@@ -194,7 +194,7 @@
             <table class="tasa-crono-table">
               <thead><tr><th>Fase</th><th>Fecha</th><th>Inicio</th><th>Fin</th></tr></thead>
               <tbody id="tasaCronogramaBody">
-                <tr><td><input data-crono="fase"></td><td><input data-crono="fecha" type="date"></td><td><input data-crono="inicio" type="time"></td><td><input data-crono="fin" type="time"></td></tr>
+                <tr><td><input data-crono="fase"></td><td><input data-crono="fecha" type="date"></td><td><input data-crono="inicio" placeholder="HH:MM"></td><td><input data-crono="fin" placeholder="HH:MM"></td></tr>
               </tbody>
             </table>
             <button class="secondary" id="tasaAddCrono" type="button" style="margin-top:8px">+ Añadir fase</button>
