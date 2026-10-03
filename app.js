@@ -766,11 +766,13 @@ const dotsTimer = setInterval(actualizarTexto, 450);
       const local=heuristicExtract(rawText,tipo);
       const out=await serverCall('extractDocument',payload);
       const ai=out||{};
+      const aiLinks=heuristicExtract(ai.rawText||'',tipo);
 
       // Con la API activa, la interpretación de la IA tiene prioridad.
-      // La heurística local queda solo como respaldo cuando la IA no devuelve
-      // un campo y para recuperar enlaces que todavía no forman parte del
-      // esquema estructurado del backend.
+      // Para los enlaces usamos tres niveles de respaldo:
+      // 1) campos estructurados devueltos por la IA;
+      // 2) URLs presentes en la transcripción útil devuelta por la IA;
+      // 3) URLs presentes en el texto pegado originalmente.
       const x={
         tipo:ai.tipo||local.tipo||tipo,
         tema:ai.tema||local.tema||'',
@@ -780,8 +782,8 @@ const dotsTimer = setInterval(actualizarTexto, 450);
         convocados:ai.convocados||local.convocados||'',
         observaciones:ai.observaciones||local.observaciones||'',
         rawText:ai.rawText||rawText||local.rawText||'',
-        linkReunion:ai.linkReunion||local.linkReunion||'',
-        linkUbicacion:ai.linkUbicacion||local.linkUbicacion||''
+        linkReunion:ai.linkReunion||aiLinks.linkReunion||local.linkReunion||'',
+        linkUbicacion:ai.linkUbicacion||aiLinks.linkUbicacion||local.linkUbicacion||''
       };
       $('#fTipo').value=cleanNonLinkField(x.tipo||tipo);$('#fTema').value=cleanNonLinkField(x.tema||'');$('#fFecha').value=normalizeDate(x.fecha)||'';$('#fHora').value=normalizeTime(x.hora)||'';$('#fLugar').value=cleanNonLinkField(x.lugar||'');$('#fConvocados').value=cleanNonLinkField(x.convocados||'');$('#fObservaciones').value=cleanNonLinkField(x.observaciones||'');$('#fLinkReunion').value=normalizeOptionalUrl(x.linkReunion)||'';$('#fLinkUbicacion').value=normalizeOptionalUrl(x.linkUbicacion)||'';updateGeneratedHeader();$('#generatedForm').classList.remove('hidden');$('#generatedForm').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){
