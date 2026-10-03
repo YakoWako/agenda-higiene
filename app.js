@@ -167,7 +167,9 @@
 
   function alertInfo(e,now=new Date()){
     const admin=String(e.estadoAdmin||'').toUpperCase();
+
     if(['CERRADO','SUSPENDIDO','EJECUTADO'].includes(admin)) return null;
+    if((e.asignados||[]).length>0) return null;
 
     const when=dt(e);
     if(!when) return {urgency:null,hours:null};
@@ -320,7 +322,6 @@ function eventStatePill(e){
     </span>`;
 }
   async function init(){
-  $('#todayLabel').textContent = fmtNow();
   dailySelectedDate = todayISO();
   $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
 
@@ -703,7 +704,8 @@ function eventCard(e,readOnly=false){
       label==='AYER' ? '📅 Eventos de ayer' :
       `📅 Eventos del ${fmtDate(selected)}`;
 
-    $('#dailyEventsTitle').textContent=title;
+    $('#dailyEventsTitle').innerHTML=
+      esc(title)+' <span style="font-weight:700;color:var(--muted)">('+rows.length+')</span>';
 
     const el=$('#dailyList');
     el.innerHTML=rows.length
