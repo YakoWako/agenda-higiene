@@ -474,8 +474,8 @@ function eventStatePill(e){
   return updated;
 }
   function bind(){
-    $('#moduleNav button[data-module]').forEach(b=>b.onclick=()=>switchModule(b.dataset.module));
-    $('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+    document.querySelectorAll('#moduleNav button[data-module]').forEach(b=>b.onclick=()=>switchModule(b.dataset.module));
+    document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
     $('#registrador').onchange=()=>$('#registradorOtroWrap').classList.toggle('hidden',$('#registrador').value!=='Otro');
     $('#fuente').onchange=()=>$('#fuenteOtroWrap').classList.toggle('hidden',$('#fuente').value!=='Otro');
     $('#tipo').onchange=()=>$('#tipoOtroWrap').classList.toggle('hidden',$('#tipo').value!=='Otro');
@@ -561,7 +561,7 @@ function eventStatePill(e){
 
     currentModule=module;
 
-    $('#moduleNav button[data-module]').forEach(btn=>{
+    document.querySelectorAll('#moduleNav button[data-module]').forEach(btn=>{
       btn.classList.toggle('active',btn.dataset.module===module);
     });
 
@@ -581,7 +581,7 @@ function eventStatePill(e){
     }
 
     if(localNav) localNav.classList.add('hidden');
-    $('.section').forEach(section=>section.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(section=>section.classList.remove('active'));
 
     const labels={
       tasa:'Eventos con tasa de aseo · calendario y certificaciones',
