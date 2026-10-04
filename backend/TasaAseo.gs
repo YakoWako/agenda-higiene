@@ -81,9 +81,13 @@ function tasaAseoRowToObject_(row) {
   };
 }
 
-function saveTasaAseoEvent(payload) {
+function saveTasaAseoEvent(payload, role) {
   ensureTasaAseoSheet_();
   payload = payload || {};
+
+  if (payload.id && String(role || '').toUpperCase() !== 'ADMIN') {
+    throw new Error('PERMISO_INSUFICIENTE');
+  }
 
   const nombreEvento = String(payload.nombreEvento || '').trim();
   const fechaEvento = normalizeTasaDate_(payload.fechaEvento);
@@ -152,6 +156,52 @@ function saveTasaAseoEvent(payload) {
 
   upsertObject_(TASA_ASEO_SHEET, 'id', row, TASA_ASEO_HEADERS);
   return tasaAseoRowToObject_(row);
+}
+
+function deleteTasaAseoEvent(id) {
+  ensureTasaAseoSheet_();
+
+  const targetId = String(id || '').trim();
+  if (!targetId) throw new Error('ID_INVALIDO');
+
+  const ss = getSS_();
+  const sh = ss.getSheetByName(TASA_ASEO_SHEET);
+  if (!sh) throw new Error('HOJA_TASA_ASEO_NO_ENCONTRADA');
+
+  const values = sh.getDataRange().getValues();
+  if (!values.length) throw new Error('REGISTRO_NO_ENCONTRADO');
+
+  const headers = values[0].map(String);
+  const idCol = headers.indexOf('id');
+  const pdfCol = headers.indexOf('pdfUrl');
+
+  if (idCol < 0) throw new Error('COLUMNA_ID_NO_ENCONTRADA');
+
+  let rowIndex = -1;
+  let pdfUrl = '';
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][idCol] || '') === targetId) {
+      rowIndex = i + 1;
+      if (pdfCol >= 0) pdfUrl = String(values[i][pdfCol] || '');
+      break;
+    }
+  }
+
+  if (rowIndex < 0) throw new Error('REGISTRO_NO_ENCONTRADO');
+
+  sh.deleteRow(rowIndex);
+
+  if (pdfUrl) {
+    try {
+      const m = pdfUrl.match(/\/d\/([A-Za-z0-9_-]+)/) || pdfUrl.match(/[?&]id=([A-Za-z0-9_-]+)/);
+      if (m && m[1]) {
+        DriveApp.getFileById(m[1]).setTrashed(true);
+      }
+    } catch (_) {}
+  }
+
+  return {ok:true, id:targetId};
 }
 
 function extractTasaAseo(payload) {
