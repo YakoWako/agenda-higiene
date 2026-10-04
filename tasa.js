@@ -22,6 +22,10 @@
   let currentMonth = new Date();
   currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
   let loadedOnce = false;
+  let tasaRole = 'LECTURA';
+  let editingId = '';
+  let editingPdfUrl = '';
+  let editingPdfFileName = '';
 
   function moduleVisible(){
     const el=q('#module-tasa');
@@ -45,13 +49,134 @@
     return txt.charAt(0).toUpperCase()+txt.slice(1);
   }
 
+  function isAdmin(){
+    return String(tasaRole||'').toUpperCase()==='ADMIN';
+  }
+
+  function monthEvents(d=currentMonth){
+    const key=monthKey(d);
+    return events
+      .filter(e=>String(e.fechaEvento||'').slice(0,7)===key)
+      .sort((a,b)=>{
+        const fa=String(a.fechaEvento||'')+' '+String(a.horaInicio||'');
+        const fb=String(b.fechaEvento||'')+' '+String(b.horaInicio||'');
+        return fa.localeCompare(fb);
+      });
+  }
+
+  function normalizeComparable(value){
+    return String(value||'')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,' ')
+      .trim()
+      .replace(/\s+/g,' ');
+  }
+
+  function tokenSimilarity(a,b){
+    const aa=new Set(normalizeComparable(a).split(' ').filter(Boolean));
+    const bb=new Set(normalizeComparable(b).split(' ').filter(Boolean));
+    if(!aa.size||!bb.size) return 0;
+    let inter=0;
+    aa.forEach(x=>{if(bb.has(x)) inter++;});
+    const union=new Set([...aa,...bb]).size;
+    return union?inter/union:0;
+  }
+
+  function findPossibleDuplicates(data){
+    const name=normalizeComparable(data.nombreEvento);
+    const org=normalizeComparable(data.organizador);
+    const doc=normalizeComparable(data.numeroDocumento);
+
+    return events.filter(e=>{
+      if(editingId && String(e.id)===String(editingId)) return false;
+
+      const eName=normalizeComparable(e.nombreEvento);
+      const eOrg=normalizeComparable(e.organizador);
+      const eDoc=normalizeComparable(e.numeroDocumento);
+
+      if(doc && eDoc && doc===eDoc) return true;
+
+      const nameExact=!!name && name===eName;
+      const orgExact=!!org && org===eOrg;
+      const nameSim=tokenSimilarity(name,eName);
+      const orgSim=tokenSimilarity(org,eOrg);
+      const sameDate=!!data.fechaEvento && String(data.fechaEvento)===String(e.fechaEvento||'');
+
+      if(nameExact && orgExact) return true;
+      if(nameExact && (orgExact || orgSim>=0.6)) return true;
+      if(orgExact && nameSim>=0.65) return true;
+      if(sameDate && nameSim>=0.6) return true;
+      return nameSim>=0.75 && orgSim>=0.65;
+    }).slice(0,5);
+  }
+
+  function confirmPossibleDuplicate(data){
+    const dupes=findPossibleDuplicates(data);
+    if(!dupes.length) return true;
+
+    const lines=dupes.map(e=>
+      '• '+(e.nombreEvento||'Evento')+
+      ' · '+fmtDate(e.fechaEvento)+
+      (e.horaInicio?' · '+e.horaInicio:'')+
+      (e.organizador?' · '+e.organizador:'')
+    ).join('\n');
+
+    return window.confirm(
+      'Se encontró '+(dupes.length===1?'un posible evento duplicado':'posibles eventos duplicados')+':\n\n'+
+      lines+
+      '\n\n¿Desea guardar de todas formas?'
+    );
+  }
+
+  async function copyText(text){
+    try{
+      if(navigator.clipboard?.writeText){
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    }catch(_){}
+
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok=document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+
+  async function copyCurrentMonth(){
+    const rows=monthEvents();
+    if(!rows.length){
+      window.alert('No existen eventos registrados en '+monthLabel(currentMonth)+'.');
+      return;
+    }
+
+    const header='EVENTOS CON TASA DE ASEO · '+monthLabel(currentMonth).toUpperCase();
+    const body=rows.map((e,i)=>[
+      (i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase(),
+      'Fecha: '+fmtDate(e.fechaEvento),
+      'Hora: '+(e.horaInicio||'—')+(e.horaFin?' – '+e.horaFin:''),
+      'Lugar: '+(e.lugar||'—'),
+      'Organizador: '+(e.organizador||'—')
+    ].join('\n')).join('\n\n');
+
+    const ok=await copyText(header+'\n\n'+body);
+    window.alert(ok?'Eventos del mes copiados al portapapeles.':'No se pudo copiar el listado.');
+  }
+
   function renderCalendar(){
     const title=q('#tasaMonthTitle');
     const picker=q('#tasaMonthPicker');
     const cal=q('#tasaCalendar');
     if(!title||!cal) return;
 
-    title.textContent=monthLabel(currentMonth);
+    const count=monthEvents(currentMonth).length;
+    title.textContent=monthLabel(currentMonth)+' ('+count+')';
     if(picker) picker.value=monthKey(currentMonth);
 
     const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -91,6 +216,12 @@
     const el=q('#tasaRecords');
     if(!el) return;
     const term=String(q('#tasaSearch')?.value||'').toLowerCase().trim();
+    const monthRows=monthEvents(currentMonth);
+    const monthLabelEl=q('#tasaRecordsMonthLabel');
+    if(monthLabelEl) monthLabelEl.textContent=monthLabel(currentMonth)+' ('+monthRows.length+')';
+    const copyBtn=q('#tasaCopyMonth');
+    if(copyBtn) copyBtn.textContent='📋 Copiar '+monthLabel(currentMonth).replace(/ de /i,' ')+' ('+monthRows.length+')';
+
     const rows=events
       .filter(e=>!term || [e.nombreEvento,e.numeroDocumento,e.organizador,e.lugar,e.fechaEvento].some(v=>String(v||'').toLowerCase().includes(term)))
       .sort((a,b)=>String(b.fechaEvento||'').localeCompare(String(a.fechaEvento||'')));
@@ -148,11 +279,26 @@
 
     q('#tasaDetailTitle').textContent=e.nombreEvento||'Evento';
     const cron=Array.isArray(e.cronograma)?e.cronograma:[];
+    const adminActions=isAdmin()
+      ? `<button class="secondary" id="tasaEditEvent" type="button">✏️ Editar</button>
+         <button class="danger" id="tasaDeleteEvent" type="button">🗑 Eliminar</button>`
+      : '';
+
     q('#tasaDetailBody').innerHTML=detailRows(e)+`
       <div class="card-title" style="margin-top:16px">Cronograma</div>
       ${cron.length?`<table class="tasa-crono-table"><thead><tr><th>Fase</th><th>Fecha</th><th>Inicio</th><th>Fin</th></tr></thead><tbody>${cron.map(c=>`<tr><td>${esc(c.fase||'')}</td><td>${esc(fmtDate(c.fecha))}</td><td>${esc(c.inicio||'')}</td><td>${esc(c.fin||'')}</td></tr>`).join('')}</tbody></table>`:'<div class="hint">Sin cronograma registrado.</div>'}
-      ${e.pdfUrl?`<div class="form-actions"><a class="secondary" style="text-decoration:none" href="${esc(e.pdfUrl)}" target="_blank" rel="noopener">📄 Ver certificación PDF</a></div>`:''}
+      <div class="form-actions">
+        ${e.pdfUrl?`<a class="secondary" style="text-decoration:none" href="${esc(e.pdfUrl)}" target="_blank" rel="noopener">📄 Ver certificación PDF</a>`:''}
+        ${adminActions}
+      </div>
     `;
+
+    const editBtn=q('#tasaEditEvent');
+    if(editBtn) editBtn.onclick=()=>startEditEvent(e);
+
+    const deleteBtn=q('#tasaDeleteEvent');
+    if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(e);
+
     modal.classList.add('open');
   }
 
@@ -197,8 +343,74 @@
     if(body) body.innerHTML=(Array.isArray(e.cronograma)&&e.cronograma.length?e.cronograma:[{}]).map(cronRow).join('');
   }
 
+  function resetEditState(){
+    editingId='';
+    editingPdfUrl='';
+    editingPdfFileName='';
+    const title=q('#tasaFormTitle');
+    if(title) title.textContent='🗂️ Datos del evento';
+    const saveBtn=q('#tasaSaveEvent');
+    if(saveBtn) saveBtn.textContent='Guardar evento';
+    const clearBtn=q('#tasaClearForm');
+    if(clearBtn) clearBtn.textContent='Limpiar';
+  }
+
+  function startEditEvent(e){
+    if(!isAdmin()) return;
+    editingId=String(e.id||'');
+    editingPdfUrl=String(e.pdfUrl||'');
+    editingPdfFileName=String(e.pdfFileName||'');
+    fillForm(e);
+
+    const title=q('#tasaFormTitle');
+    if(title) title.textContent='✏️ Editar evento';
+    const saveBtn=q('#tasaSaveEvent');
+    if(saveBtn) saveBtn.textContent='Actualizar evento';
+    const clearBtn=q('#tasaClearForm');
+    if(clearBtn) clearBtn.textContent='Cancelar edición';
+
+    const modal=q('#tasaDetailModal');
+    if(modal) modal.classList.remove('open');
+    showTasaView('register');
+    q('#tasaNombreEvento')?.focus();
+  }
+
+  async function deleteEvent(e){
+    if(!isAdmin()) return;
+
+    const ok=window.confirm(
+      '¿Eliminar definitivamente este registro?\n\n'+
+      (e.nombreEvento||'Evento')+' · '+fmtDate(e.fechaEvento)+
+      '\n\nEsta acción está reservada al administrador.'
+    );
+    if(!ok) return;
+
+    const btn=q('#tasaDeleteEvent');
+    const original=btn?.textContent||'🗑 Eliminar';
+    if(btn){
+      btn.disabled=true;
+      btn.textContent='Eliminando...';
+    }
+
+    try{
+      await serverCall('deleteTasaAseoEvent',String(e.id||''));
+      events=events.filter(x=>String(x.id)!==String(e.id));
+      q('#tasaDetailModal')?.classList.remove('open');
+      renderCalendar();
+      renderRecords();
+    }catch(err){
+      window.alert('No se pudo eliminar: '+String(err?.message||err).slice(0,220));
+    }finally{
+      if(btn&&btn.isConnected){
+        btn.disabled=false;
+        btn.textContent=original;
+      }
+    }
+  }
+
   function clearForm(){
     fillForm({});
+    resetEditState();
     const file=q('#tasaPdfFile');
     if(file) file.value='';
     const name=q('#tasaPdfName');
@@ -237,8 +449,12 @@
   async function loadEvents(silent=false){
     if(!window.AgendaApi?.isConfigured?.()) return;
     try{
-      const data=await serverCall('getTasaAseoData');
+      const [data,ping]=await Promise.all([
+        serverCall('getTasaAseoData'),
+        serverCall('ping').catch(()=>null)
+      ]);
       events=Array.isArray(data)?data:(data?.events||[]);
+      tasaRole=String(ping?.role||tasaRole||'LECTURA').toUpperCase();
       loadedOnce=true;
       renderCalendar();
       renderRecords();
@@ -304,6 +520,14 @@
       return;
     }
 
+    if(!confirmPossibleDuplicate(data)) return;
+
+    if(editingId){
+      data.id=editingId;
+      data.pdfUrl=editingPdfUrl;
+      data.pdfFileName=editingPdfFileName;
+    }
+
     const btn=q('#tasaSaveEvent');
     const originalText=btn?.textContent||'Guardar evento';
     let dotsTimer=null;
@@ -361,6 +585,7 @@
       renderCalendar();
     };
     q('#tasaSearch').oninput=renderRecords;
+    q('#tasaCopyMonth').onclick=copyCurrentMonth;
     q('#tasaPickPdf').onclick=()=>q('#tasaPdfFile').click();
     q('#tasaPdfFile').onchange=()=>{q('#tasaPdfName').textContent=q('#tasaPdfFile').files[0]?.name||'Sin archivo seleccionado';};
     q('#tasaProcessPdf').onclick=processPdf;
