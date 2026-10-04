@@ -562,14 +562,16 @@ function buildAlcaldiaPrompt_() {
     '5. llegadaAlcaldesa: si aparece una frase como "(LLEGADA DE LA ALCALDESA 08:30)" o equivalente, extrae únicamente esa hora. Si no aparece, devuelve cadena vacía.',
     '6. nombreEvento: devuelve un título breve y fiel de la actividad. No incluyas el rango horario, la palabra Lugar ni la URL.',
     '7. lugar: extrae todo el texto útil que sigue a "Lugar:" o que identifique claramente el sitio del evento.',
-    '8. ubicacionUrl: extrae exactamente el enlace de Google Maps, maps.app.goo.gl, Waze u otro mapa que corresponda a esa actividad. No inventes enlaces. Si no existe, devuelve cadena vacía.',
-    '9. observaciones: conserva información operativa secundaria útil que no encaje en los campos anteriores, por ejemplo códigos TE, indicaciones especiales o aclaraciones. No copies saludos ni metadatos de WhatsApp.',
-    '10. estado: devuelve ACTIVO salvo que la fuente diga explícitamente que la actividad fue suspendida o reprogramada; en esos casos devuelve SUSPENDIDO o REPROGRAMADO.',
-    '11. Ignora nombres de remitentes de WhatsApp, horas de envío del mensaje, "Reenviado", respuestas del grupo como "por fa su ayuda", menciones posteriores de asignación interna y elementos de la interfaz del teléfono.',
-    '12. Si aparece una miniatura de mapa con coordenadas pero no hay una URL completa legible, NO inventes la URL; deja ubicacionUrl vacía.',
-    '13. Si un dato no consta, devuelve cadena vacía. No infieras nombres, lugares ni horarios.',
-    '14. No combines dos actividades distintas aunque se desarrollen en el mismo lugar.',
-    '15. La salida debe representar la agenda institucional, no la conversación de WhatsApp.'
+    '8. ubicacionUrl: copia únicamente el enlace EXPLÍCITO que aparezca junto a la palabra "Ubicación:" o como vínculo visible dentro del mismo bloque/mensaje de esa actividad. Debe conservarse carácter por carácter; no reconstruyas, completes, acortes ni generes una URL a partir del nombre del lugar o de coordenadas.',
+    '9. Si el enlace visible está partido por salto de línea en la captura, une solamente los fragmentos que forman claramente el mismo URL. Si algún carácter no es legible con suficiente certeza, devuelve cadena vacía antes que una dirección incorrecta.',
+    '10. Una miniatura de Google Maps, una tarjeta de vista previa o unas coordenadas NO autorizan a crear un enlace. Nunca conviertas coordenadas en una URL.',
+    '11. En capturas de WhatsApp con varios mensajes, asocia cada enlace o miniatura únicamente con la actividad del mismo mensaje/bloque. No traslades una ubicación a la actividad anterior o siguiente. Si la asociación es ambigua, deja ubicacionUrl vacía.',
+    '12. observaciones: conserva información operativa secundaria útil que no encaje en los campos anteriores, por ejemplo códigos TE, indicaciones especiales o aclaraciones. No copies saludos ni metadatos de WhatsApp.',
+    '13. estado: devuelve ACTIVO salvo que la fuente diga explícitamente que la actividad fue suspendida o reprogramada; en esos casos devuelve SUSPENDIDO o REPROGRAMADO.',
+    '14. Ignora nombres de remitentes de WhatsApp, horas de envío del mensaje, "Reenviado", respuestas del grupo como "por fa su ayuda", menciones posteriores de asignación interna y elementos de la interfaz del teléfono.',
+    '15. Si un dato no consta, devuelve cadena vacía. No infieras nombres, lugares ni horarios.',
+    '16. No combines dos actividades distintas aunque se desarrollen en el mismo lugar.',
+    '17. La salida debe representar la agenda institucional, no la conversación de WhatsApp.'
   ].join('\n');
 }
 
