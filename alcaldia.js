@@ -360,6 +360,93 @@
     }
   }
 
+  function normalizeDupText(value){
+    return String(value||'')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function extractEventCodes(e){
+    const text=[
+      e?.nombreEvento,
+      e?.observaciones,
+      e?.lugar
+    ].filter(Boolean).join(' ');
+
+    return [...new Set(
+      (String(text).match(/\bTE\d{8,}\b/gi)||[])
+        .map(x=>x.toUpperCase())
+    )];
+  }
+
+  function tokenSimilarity(a,b){
+    const stop=new Set(['de','del','la','las','los','el','y','a','para','en','un','una','al','por','con']);
+    const A=new Set(normalizeDupText(a).split(' ').filter(x=>x.length>2&&!stop.has(x)));
+    const B=new Set(normalizeDupText(b).split(' ').filter(x=>x.length>2&&!stop.has(x)));
+    if(!A.size||!B.size) return 0;
+
+    let intersection=0;
+    A.forEach(x=>{ if(B.has(x)) intersection++; });
+    const union=new Set([...A,...B]).size;
+    return union?intersection/union:0;
+  }
+
+  function sameAlcaldiaEvent(a,b){
+    if(!a||!b) return false;
+    if(String(a.fecha||'')!==String(b.fecha||'')) return false;
+
+    const aCodes=extractEventCodes(a);
+    const bCodes=extractEventCodes(b);
+    if(aCodes.length&&bCodes.length&&aCodes.some(code=>bCodes.includes(code))) return true;
+
+    const sameStart=normalizeTime(a.horaInicio||'')===normalizeTime(b.horaInicio||'');
+    const sameEnd=normalizeTime(a.horaFin||'')===normalizeTime(b.horaFin||'');
+    const placeA=normalizeDupText(a.lugar);
+    const placeB=normalizeDupText(b.lugar);
+    const samePlace=!!placeA&&!!placeB&&(placeA===placeB||placeA.includes(placeB)||placeB.includes(placeA));
+    const nameScore=tokenSimilarity(a.nombreEvento,b.nombreEvento);
+
+    // Coincidencia horaria fuerte + lugar, o coincidencia horaria fuerte + nombre muy parecido.
+    if(sameStart&&sameEnd&&(samePlace||nameScore>=0.46)) return true;
+
+    // Para agendas con hora fin omitida: misma hora de inicio + lugar + nombre razonablemente parecido.
+    if(sameStart&&samePlace&&nameScore>=0.34) return true;
+
+    return false;
+  }
+
+  function duplicateLabel(e){
+    const time=normalizeTime(e.horaInicio||'')||'sin hora';
+    const name=String(e.nombreEvento||'Actividad sin nombre').trim();
+    return time+' · '+name;
+  }
+
+  function findDuplicateRows(rows,existingRows){
+    const duplicates=[];
+    const accepted=[];
+
+    rows.forEach((row,index)=>{
+      const againstExisting=(existingRows||[]).find(e=>sameAlcaldiaEvent(row,e));
+      const againstBatch=accepted.find(e=>sameAlcaldiaEvent(row,e));
+
+      if(againstExisting||againstBatch){
+        duplicates.push({
+          index,
+          row,
+          match:againstExisting||againstBatch
+        });
+      }else{
+        accepted.push(row);
+      }
+    });
+
+    return {duplicates,accepted};
+  }
+
   async function saveAgenda(){
     const st=q('#alcaldiaProcessState');
     const btn=q('#alcaldiaSave');
@@ -405,15 +492,62 @@
       let dots=0;
       const tick=()=>{
         dots=(dots%3)+1;
-        btn.textContent='Guardando'+'.'.repeat(dots);
+        btn.textContent='Verificando'+'.'.repeat(dots);
       };
       tick();
       timer=setInterval(tick,450);
     }
 
-    if(st) st.textContent='Guardando cartelera en la base maestra…';
+    if(st) st.textContent='Verificando que no existan actividades duplicadas…';
 
     try{
+      // Se consulta nuevamente la base justo antes de guardar para evitar
+      // duplicados incluso si otro usuario registró la agenda hace unos segundos.
+      const fresh=await serverCall('getAlcaldiaData');
+      const freshEvents=Array.isArray(fresh?.events)?fresh.events:[];
+      const check=findDuplicateRows(rows,freshEvents);
+
+      if(check.duplicates.length){
+        const lines=check.duplicates
+          .map(x=>'• '+duplicateLabel(x.row))
+          .join('\n');
+
+        if(!check.accepted.length){
+          const msg=
+            'No se guardó ninguna actividad porque ya está registrada en la cartelera.\n\n'+
+            lines;
+          if(st) st.textContent='Registro detenido: la agenda ya existe en la cartelera.';
+          window.alert(msg);
+          return;
+        }
+
+        const proceed=window.confirm(
+          'Se detectaron '+check.duplicates.length+' actividad(es) ya registradas y NO se volverán a guardar:\n\n'+
+          lines+
+          '\n\n¿Desea guardar únicamente las '+check.accepted.length+' actividad(es) nuevas?'
+        );
+
+        if(!proceed){
+          if(st) st.textContent='Guardado cancelado para evitar duplicados.';
+          return;
+        }
+
+        rows=check.accepted;
+      }
+
+      if(btn){
+        let dots=0;
+        const tick=()=>{
+          dots=(dots%3)+1;
+          btn.textContent='Guardando'+'.'.repeat(dots);
+        };
+        if(timer) clearInterval(timer);
+        tick();
+        timer=setInterval(tick,450);
+      }
+
+      if(st) st.textContent='Guardando cartelera en la base maestra…';
+
       const saved=await serverCall('saveAlcaldiaAgenda',{events:rows});
       const savedRows=Array.isArray(saved?.events)?saved.events:[];
 
