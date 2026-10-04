@@ -15,7 +15,32 @@
     const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
     return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
   };
-  const normalizeTime = v => String(v||'').trim().replace(/[Hh.]/,':').replace(/^24:00$/,'24:00');
+  const normalizeTime = v => {
+    const raw=String(v||'').trim();
+    if(!raw) return '';
+
+    let m=raw.match(/^(\d{1,2})[:Hh.](\d{2})(?::\d{2})?$/);
+    if(!m){
+      m=raw.match(/\b(\d{1,2}):(\d{2}):\d{2}\s+GMT/i) ||
+        raw.match(/\b(\d{1,2}):(\d{2})\b/);
+    }
+
+    if(!m) return raw;
+
+    const h=Number(m[1]);
+    const min=Number(m[2]);
+
+    if(h===24 && min===0) return '24:00';
+    if(h<0 || h>23 || min<0 || min>59) return raw;
+
+    return String(h).padStart(2,'0')+':'+String(min).padStart(2,'0');
+  };
+
+  const displayTime = v => {
+    const t=normalizeTime(v);
+    return /^\d{2}:\d{2}$/.test(t) ? t.replace(':','H') : t;
+  };
+
   const serverCall = (fn,...args) => window.AgendaApi.call(fn,...args);
 
   let events = [];
@@ -119,7 +144,7 @@
     const lines=dupes.map(e=>
       '• '+(e.nombreEvento||'Evento')+
       ' · '+fmtDate(e.fechaEvento)+
-      (e.horaInicio?' · '+e.horaInicio:'')+
+      (e.horaInicio?' · '+displayTime(e.horaInicio):'')+
       (e.organizador?' · '+e.organizador:'')
     ).join('\n');
 
@@ -161,7 +186,7 @@
     const textBody=rows.map((e,i)=>[
       '*'+(i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase()+'*',
       '*Fecha:* '+fmtDate(e.fechaEvento),
-      '*Hora:* '+(e.horaInicio||'—')+(e.horaFin?' – '+e.horaFin:''),
+      '*Hora:* '+(e.horaInicio?displayTime(e.horaInicio):'—')+(e.horaFin?' – '+displayTime(e.horaFin):''),
       '*Lugar:* '+(e.lugar||'—'),
       '*Organizador:* '+(e.organizador||'—')
     ].join('\n')).join('\n\n');
@@ -170,7 +195,7 @@
       '<div style="margin-bottom:16px">'+
         '<strong>'+esc((i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase())+'</strong><br>'+
         '<strong>Fecha:</strong> '+esc(fmtDate(e.fechaEvento))+'<br>'+
-        '<strong>Hora:</strong> '+esc((e.horaInicio||'—')+(e.horaFin?' – '+e.horaFin:''))+'<br>'+
+        '<strong>Hora:</strong> '+esc((e.horaInicio?displayTime(e.horaInicio):'—')+(e.horaFin?' – '+displayTime(e.horaFin):''))+'<br>'+
         '<strong>Lugar:</strong> '+esc(e.lugar||'—')+'<br>'+
         '<strong>Organizador:</strong> '+esc(e.organizador||'—')+
       '</div>'
@@ -231,7 +256,7 @@
         <div class="tasa-day-num">${d.getDate()}</div>
         ${dayEvents.map(e=>`<button class="tasa-event-chip" type="button" data-tasa-id="${esc(e.id)}">
           ${esc(e.nombreEvento||'Evento')}
-          <small>${esc(e.horaInicio||'')}${e.horaFin?' – '+esc(e.horaFin):''}</small>
+          <small>${esc(e.horaInicio?displayTime(e.horaInicio):'')}${e.horaFin?' – '+esc(displayTime(e.horaFin)):''}</small>
         </button>`).join('')}
       </div>`;
     }
@@ -261,7 +286,7 @@
           <strong>${esc(e.nombreEvento||'Evento sin nombre')}</strong>
           <div class="event-meta">
             <span>📅 ${esc(fmtDate(e.fechaEvento))}</span>
-            <span>🕐 ${esc(e.horaInicio||'—')}${e.horaFin?' – '+esc(e.horaFin):''}</span>
+            <span>🕐 ${esc(e.horaInicio?displayTime(e.horaInicio):'—')}${e.horaFin?' – '+esc(displayTime(e.horaFin)):''}</span>
             ${e.lugar?`<span>📍 ${esc(e.lugar)}</span>`:''}
           </div>
         </div>
@@ -282,7 +307,7 @@
         <div class="tasa-detail-item"><span>N.º de oficio / certificación</span><strong>${esc(e.numeroDocumento||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Fecha de emisión</span><strong>${esc(fmtDate(e.fechaEmision))}</strong></div>
         <div class="tasa-detail-item"><span>Fecha del evento</span><strong>${esc(fmtDate(e.fechaEvento))}</strong></div>
-        <div class="tasa-detail-item"><span>Horario</span><strong>${esc(e.horaInicio||'—')}${e.horaFin?' – '+esc(e.horaFin):''}</strong></div>
+        <div class="tasa-detail-item"><span>Horario</span><strong>${esc(e.horaInicio?displayTime(e.horaInicio):'—')}${e.horaFin?' – '+esc(displayTime(e.horaFin)):''}</strong></div>
         <div class="tasa-detail-item"><span>Lugar</span><strong>${esc(e.lugar||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Aforo</span><strong>${esc(e.aforo||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Organizador</span><strong>${esc(e.organizador||'—')}</strong></div>
@@ -315,7 +340,7 @@
 
     q('#tasaDetailBody').innerHTML=detailRows(e)+`
       <div class="card-title" style="margin-top:16px">Cronograma</div>
-      ${cron.length?`<table class="tasa-crono-table"><thead><tr><th>Fase</th><th>Fecha</th><th>Inicio</th><th>Fin</th></tr></thead><tbody>${cron.map(c=>`<tr><td>${esc(c.fase||'')}</td><td>${esc(fmtDate(c.fecha))}</td><td>${esc(c.inicio||'')}</td><td>${esc(c.fin||'')}</td></tr>`).join('')}</tbody></table>`:'<div class="hint">Sin cronograma registrado.</div>'}
+      ${cron.length?`<table class="tasa-crono-table"><thead><tr><th>Fase</th><th>Fecha</th><th>Inicio</th><th>Fin</th></tr></thead><tbody>${cron.map(c=>`<tr><td>${esc(c.fase||'')}</td><td>${esc(fmtDate(c.fecha))}</td><td>${esc(c.inicio?displayTime(c.inicio):'')}</td><td>${esc(c.fin?displayTime(c.fin):'')}</td></tr>`).join('')}</tbody></table>`:'<div class="hint">Sin cronograma registrado.</div>'}
       <div class="form-actions">
         ${e.pdfUrl?`<a class="secondary" style="text-decoration:none" href="${esc(e.pdfUrl)}" target="_blank" rel="noopener">📄 Ver certificación PDF</a>`:''}
         ${adminActions}
@@ -482,7 +507,19 @@
         serverCall('getTasaAseoData'),
         serverCall('ping').catch(()=>null)
       ]);
-      events=Array.isArray(data)?data:(data?.events||[]);
+      const rawEvents=Array.isArray(data)?data:(data?.events||[]);
+      events=rawEvents.map(e=>({
+        ...e,
+        horaInicio:normalizeTime(e.horaInicio),
+        horaFin:normalizeTime(e.horaFin),
+        cronograma:Array.isArray(e.cronograma)
+          ? e.cronograma.map(c=>({
+              ...c,
+              inicio:normalizeTime(c.inicio),
+              fin:normalizeTime(c.fin)
+            }))
+          : []
+      }));
       tasaRole=String(ping?.role||tasaRole||'LECTURA').toUpperCase();
       loadedOnce=true;
       renderCalendar();
