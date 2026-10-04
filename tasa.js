@@ -38,7 +38,7 @@
 
   const displayTime = v => {
     const t=normalizeTime(v);
-    return /^\d{2}:\d{2}$/.test(t) ? t.replace(':','H') : t;
+    return /^\d{2}:\d{2}$/.test(t) ? t : t;
   };
 
   const serverCall = (fn,...args) => window.AgendaApi.call(fn,...args);
