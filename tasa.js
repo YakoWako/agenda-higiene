@@ -157,16 +157,45 @@
     }
 
     const header='EVENTOS CON TASA DE ASEO · '+monthLabel(currentMonth).toUpperCase();
-    const body=rows.map((e,i)=>[
-      (i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase(),
-      'Fecha: '+fmtDate(e.fechaEvento),
-      'Hora: '+(e.horaInicio||'—')+(e.horaFin?' – '+e.horaFin:''),
-      'Lugar: '+(e.lugar||'—'),
-      'Organizador: '+(e.organizador||'—')
+
+    const textBody=rows.map((e,i)=>[
+      '*'+(i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase()+'*',
+      '*Fecha:* '+fmtDate(e.fechaEvento),
+      '*Hora:* '+(e.horaInicio||'—')+(e.horaFin?' – '+e.horaFin:''),
+      '*Lugar:* '+(e.lugar||'—'),
+      '*Organizador:* '+(e.organizador||'—')
     ].join('\n')).join('\n\n');
 
-    const ok=await copyText(header+'\n\n'+body);
-    window.alert(ok?'Eventos del mes copiados al portapapeles.':'No se pudo copiar el listado.');
+    const htmlBody=rows.map((e,i)=>
+      '<div style="margin-bottom:16px">'+
+        '<strong>'+esc((i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase())+'</strong><br>'+
+        '<strong>Fecha:</strong> '+esc(fmtDate(e.fechaEvento))+'<br>'+
+        '<strong>Hora:</strong> '+esc((e.horaInicio||'—')+(e.horaFin?' – '+e.horaFin:''))+'<br>'+
+        '<strong>Lugar:</strong> '+esc(e.lugar||'—')+'<br>'+
+        '<strong>Organizador:</strong> '+esc(e.organizador||'—')+
+      '</div>'
+    ).join('');
+
+    const text='*'+header+'*\n\n'+textBody;
+    const html='<div><strong>'+esc(header)+'</strong><br><br>'+htmlBody+'</div>';
+
+    try{
+      if(navigator.clipboard&&window.isSecureContext&&typeof ClipboardItem!=='undefined'&&navigator.clipboard.write){
+        const item=new ClipboardItem({
+          'text/plain':new Blob([text],{type:'text/plain'}),
+          'text/html':new Blob([html],{type:'text/html'})
+        });
+        await navigator.clipboard.write([item]);
+        window.alert('Eventos del mes copiados al portapapeles.');
+        return;
+      }
+
+      const ok=await copyText(text);
+      window.alert(ok?'Eventos del mes copiados al portapapeles.':'No se pudo copiar el listado.');
+    }catch(_){
+      const ok=await copyText(text);
+      window.alert(ok?'Eventos del mes copiados al portapapeles.':'No se pudo copiar el listado.');
+    }
   }
 
   function renderCalendar(){
