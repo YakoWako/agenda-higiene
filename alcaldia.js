@@ -249,13 +249,15 @@
   }
 
   function collectPreview(){
-    const date=q('#alcaldiaAgendaDate')?.value||'';
+    const agendaDate=String(q('#alcaldiaAgendaDate')?.value||'').trim();
 
     return qa('#alcaldiaPreview [data-preview-index]').map(card=>{
       const get=name=>card.querySelector(`[data-a-field="${name}"]`)?.value.trim()||'';
+      const index=Number(card.dataset.previewIndex);
+      const detectedDate=String(extracted[index]?.fecha||'').trim();
 
       return {
-        fecha:date,
+        fecha:agendaDate||detectedDate,
         horaInicio:normalizeTime(get('horaInicio')),
         horaFin:normalizeTime(get('horaFin')),
         llegadaAlcaldesa:normalizeTime(get('llegadaAlcaldesa')),
@@ -356,20 +358,42 @@
   }
 
   async function saveAgenda(){
-    const rows=collectPreview();
     const st=q('#alcaldiaProcessState');
+    const btn=q('#alcaldiaSave');
+
+    let rows=collectPreview();
 
     if(!rows.length){
-      if(st) st.textContent='No hay actividades para guardar.';
+      const msg='No hay actividades para guardar.';
+      if(st) st.textContent=msg;
+      window.alert(msg);
       return;
+    }
+
+    // Si la fecha general quedó vacía, recupera la fecha detectada por la IA.
+    if(rows.some(e=>!e.fecha)){
+      const fallback=String(
+        q('#alcaldiaAgendaDate')?.value ||
+        extracted.find(x=>String(x?.fecha||'').trim())?.fecha ||
+        ''
+      ).trim();
+
+      if(fallback){
+        if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value=fallback;
+        rows=collectPreview();
+      }
     }
 
     if(rows.some(e=>!e.fecha)){
-      if(st) st.textContent='Seleccione la fecha de la agenda.';
+      const msg='Falta la fecha de la agenda. Selecciónela antes de guardar.';
+      if(st) st.textContent=msg;
+      const dateInput=q('#alcaldiaAgendaDate');
+      dateInput?.scrollIntoView({behavior:'smooth',block:'center'});
+      setTimeout(()=>dateInput?.focus(),250);
+      window.alert(msg);
       return;
     }
 
-    const btn=q('#alcaldiaSave');
     const original=btn?.textContent||'Guardar cartelera';
     let timer=null;
 
@@ -383,6 +407,8 @@
       tick();
       timer=setInterval(tick,450);
     }
+
+    if(st) st.textContent='Guardando cartelera en la base maestra…';
 
     try{
       const saved=await serverCall('saveAlcaldiaAgenda',{events:rows});
@@ -399,8 +425,17 @@
       clearLoad();
       showView('daily');
       renderDaily();
+      renderHistory();
+
+      window.alert(
+        rows.length===1
+          ? 'Actividad guardada correctamente.'
+          : rows.length+' actividades guardadas correctamente.'
+      );
     }catch(err){
-      if(st) st.textContent='No se pudo guardar: '+String(err?.message||err).slice(0,220);
+      const msg='No se pudo guardar: '+String(err?.message||err).slice(0,220);
+      if(st) st.textContent=msg;
+      window.alert(msg);
     }finally{
       if(timer) clearInterval(timer);
       if(btn){
