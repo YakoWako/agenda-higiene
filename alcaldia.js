@@ -149,8 +149,8 @@
             </label>
 
             <div class="alcaldia-actions">
-              <button class="secondary" type="button" data-alcaldia-edit="${esc(e.id)}">✏️ Editar</button>
-              <button class="danger" type="button" data-alcaldia-delete="${esc(e.id)}">🗑️ Borrar</button>
+              <button class="secondary" type="button" data-alcaldia-edit="${esc(e.id)}" title="Editar" aria-label="Editar actividad">✏️</button>
+              <button class="danger" type="button" data-alcaldia-delete="${esc(e.id)}" title="Borrar" aria-label="Borrar actividad">🗑️</button>
             </div>
           </div>
         </article>`;
@@ -673,7 +673,7 @@
     );
     if(!ok) return;
 
-    const original=button?.textContent||'🗑️ Borrar';
+    const original=button?.textContent||'🗑️';
 
     try{
       if(button){
