@@ -412,10 +412,12 @@
           <div class="card-title">📲 Cargar agenda recibida</div>
           <div class="hint">Puede cargar una captura de WhatsApp o pegar el texto recibido. La IA separará automáticamente todas las actividades del día.</div>
 
-          <div class="tasa-pdf-zone" style="margin-top:12px">
+          <div class="tasa-pdf-zone" id="alcaldiaPasteZone" tabindex="0" style="margin-top:12px;cursor:text">
+            <div style="font-weight:900;color:var(--navy);margin-bottom:8px">📋 Pegar captura aquí</div>
+            <div class="hint" style="margin-bottom:10px">Copie la captura de WhatsApp y presione Ctrl+V dentro de este recuadro, o selecciónela desde su equipo.</div>
             <button class="secondary" id="alcaldiaPickFile" type="button">Seleccionar captura</button>
             <input id="alcaldiaSourceFile" type="file" accept="image/*,.pdf,application/pdf">
-            <div class="hint" id="alcaldiaFileName" style="margin-top:8px">Sin archivo seleccionado</div>
+            <div class="hint" id="alcaldiaFileName" style="margin-top:8px">Sin captura seleccionada</div>
           </div>
 
           <div class="field" style="margin-top:12px">
@@ -481,7 +483,7 @@
 <script src="api.js?v=10"></script>
 <script src="app.js?v=19"></script>
 <script src="tasa.js?v=8"></script>
-<script src="alcaldia.js?v=1"></script>
+<script src="alcaldia.js?v=2"></script>
 <script>
   window.addEventListener('load', () => {
     if ('serviceWorker' in navigator) {
