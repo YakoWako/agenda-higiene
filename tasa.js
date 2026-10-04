@@ -174,14 +174,65 @@
     return ok;
   }
 
-  async function copyCurrentMonth(){
-    const rows=monthEvents();
+  function getRecordFilterState(){
+    return {
+      term:String(q('#tasaSearch')?.value||'').toLowerCase().trim(),
+      month:String(q('#tasaRecordsMonth')?.value||'').trim(),
+      day:String(q('#tasaRecordsDay')?.value||'').trim()
+    };
+  }
+
+  function getFilteredRecords(ascending=false){
+    const {term,month,day}=getRecordFilterState();
+
+    const rows=events.filter(e=>{
+      const fecha=String(e.fechaEvento||'');
+
+      if(day && fecha!==day) return false;
+      if(!day && month && fecha.slice(0,7)!==month) return false;
+
+      if(term){
+        const ok=[e.nombreEvento,e.numeroDocumento,e.organizador,e.lugar,e.fechaEvento]
+          .some(v=>String(v||'').toLowerCase().includes(term));
+        if(!ok) return false;
+      }
+
+      return true;
+    });
+
+    return rows.sort((a,b)=>{
+      const av=String(a.fechaEvento||'')+' '+String(a.horaInicio||'');
+      const bv=String(b.fechaEvento||'')+' '+String(b.horaInicio||'');
+      return ascending ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }
+
+  function recordFilterTitle(){
+    const {term,month,day}=getRecordFilterState();
+
+    let label='Todos los registros';
+
+    if(day){
+      label=fmtDate(day);
+    }else if(month){
+      const [y,m]=month.split('-').map(Number);
+      if(y&&m) label=monthLabel(new Date(y,m-1,1));
+    }
+
+    if(term) label+=' · búsqueda';
+
+    return label;
+  }
+
+  async function copyFilteredRecords(){
+    const rows=getFilteredRecords(true);
+
     if(!rows.length){
-      window.alert('No existen eventos registrados en '+monthLabel(currentMonth)+'.');
+      window.alert('No existen eventos para el filtro seleccionado.');
       return;
     }
 
-    const header='EVENTOS CON TASA DE ASEO · '+monthLabel(currentMonth).toUpperCase();
+    const header='EVENTOS CON TASA DE ASEO · '+recordFilterTitle().toUpperCase();
 
     const textBody=rows.map((e,i)=>[
       '*'+(i+1)+'. '+String(e.nombreEvento||'EVENTO').toUpperCase()+'*',
@@ -211,15 +262,15 @@
           'text/html':new Blob([html],{type:'text/html'})
         });
         await navigator.clipboard.write([item]);
-        window.alert('Eventos del mes copiados al portapapeles.');
+        window.alert('Eventos filtrados copiados al portapapeles.');
         return;
       }
 
       const ok=await copyText(text);
-      window.alert(ok?'Eventos del mes copiados al portapapeles.':'No se pudo copiar el listado.');
+      window.alert(ok?'Eventos filtrados copiados al portapapeles.':'No se pudo copiar el listado.');
     }catch(_){
       const ok=await copyText(text);
-      window.alert(ok?'Eventos del mes copiados al portapapeles.':'No se pudo copiar el listado.');
+      window.alert(ok?'Eventos filtrados copiados al portapapeles.':'No se pudo copiar el listado.');
     }
   }
 
@@ -269,16 +320,18 @@
   function renderRecords(){
     const el=q('#tasaRecords');
     if(!el) return;
-    const term=String(q('#tasaSearch')?.value||'').toLowerCase().trim();
-    const monthRows=monthEvents(currentMonth);
-    const monthLabelEl=q('#tasaRecordsMonthLabel');
-    if(monthLabelEl) monthLabelEl.textContent=monthLabel(currentMonth)+' ('+monthRows.length+')';
-    const copyBtn=q('#tasaCopyMonth');
-    if(copyBtn) copyBtn.textContent='📋 Copiar '+monthLabel(currentMonth).replace(/ de /i,' ')+' ('+monthRows.length+')';
 
-    const rows=events
-      .filter(e=>!term || [e.nombreEvento,e.numeroDocumento,e.organizador,e.lugar,e.fechaEvento].some(v=>String(v||'').toLowerCase().includes(term)))
-      .sort((a,b)=>String(b.fechaEvento||'').localeCompare(String(a.fechaEvento||'')));
+    const rows=getFilteredRecords(false);
+    const label=recordFilterTitle();
+
+    const labelEl=q('#tasaRecordsMonthLabel');
+    if(labelEl) labelEl.textContent=label+' ('+rows.length+')';
+
+    const copyBtn=q('#tasaCopyMonth');
+    if(copyBtn){
+      copyBtn.textContent='📋 Copiar resultados ('+rows.length+')';
+      copyBtn.disabled=!rows.length;
+    }
 
     el.innerHTML=rows.length ? rows.map(e=>`
       <button type="button" class="tasa-record-card" data-tasa-id="${esc(e.id)}" style="width:100%;text-align:left">
@@ -291,7 +344,7 @@
           </div>
         </div>
         <span>›</span>
-      </button>`).join('') : '<div class="empty">No existen eventos con tasa de aseo registrados.</div>';
+      </button>`).join('') : '<div class="empty">No existen eventos para el filtro seleccionado.</div>';
 
     el.querySelectorAll('[data-tasa-id]').forEach(btn=>btn.onclick=()=>openDetail(btn.dataset.tasaId));
   }
@@ -651,7 +704,38 @@
       renderCalendar();
     };
     q('#tasaSearch').oninput=renderRecords;
-    q('#tasaCopyMonth').onclick=copyCurrentMonth;
+
+    q('#tasaRecordsMonth').onchange=e=>{
+      const day=q('#tasaRecordsDay');
+      if(day) day.value='';
+
+      if(e.target.value){
+        const [y,m]=e.target.value.split('-').map(Number);
+        if(y&&m) currentMonth=new Date(y,m-1,1);
+      }
+
+      renderRecords();
+    };
+
+    q('#tasaRecordsDay').onchange=e=>{
+      const month=q('#tasaRecordsMonth');
+      if(month) month.value='';
+
+      if(e.target.value){
+        const [y,m]=e.target.value.slice(0,7).split('-').map(Number);
+        if(y&&m) currentMonth=new Date(y,m-1,1);
+      }
+
+      renderRecords();
+    };
+
+    q('#tasaRecordsAll').onclick=()=>{
+      q('#tasaRecordsMonth').value='';
+      q('#tasaRecordsDay').value='';
+      renderRecords();
+    };
+
+    q('#tasaCopyMonth').onclick=copyFilteredRecords;
     q('#tasaPickPdf').onclick=()=>q('#tasaPdfFile').click();
     q('#tasaPdfFile').onchange=()=>{q('#tasaPdfName').textContent=q('#tasaPdfFile').files[0]?.name||'Sin archivo seleccionado';};
     q('#tasaProcessPdf').onclick=processPdf;
