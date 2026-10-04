@@ -300,119 +300,6 @@
     });
   }
 
-  function loadImageFromFile(file){
-    return new Promise((resolve,reject)=>{
-      const url=URL.createObjectURL(file);
-      const img=new Image();
-      img.onload=()=>{
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-      img.onerror=()=>{
-        URL.revokeObjectURL(url);
-        reject(new Error('No se pudo preparar la captura.'));
-      };
-      img.src=url;
-    });
-  }
-
-  function canvasToFile(canvas,name,quality=.95){
-    return new Promise((resolve,reject)=>{
-      canvas.toBlob(blob=>{
-        if(!blob){
-          reject(new Error('No se pudo convertir la captura.'));
-          return;
-        }
-        resolve(new File([blob],name,{type:'image/jpeg'}));
-      },'image/jpeg',quality);
-    });
-  }
-
-  async function normalizeClipboardImage(blob){
-    const source=new File([blob],'captura_portapapeles.png',{type:blob.type||'image/png'});
-    const img=await loadImageFromFile(source);
-
-    const sourceWidth=img.naturalWidth||img.width;
-    const sourceHeight=img.naturalHeight||img.height;
-
-    // Las capturas pegadas desde Recortes de Windows llegan normalmente como PNG.
-    // Las normalizamos a JPEG, fondo blanco y mayor resolución para que la lectura
-    // de textos pequeños (especialmente la fecha) sea equivalente a un archivo
-    // seleccionado desde el PC.
-    const targetWidth=Math.min(2400,Math.max(1800,sourceWidth));
-    const scale=targetWidth/sourceWidth;
-    const targetHeight=Math.max(1,Math.round(sourceHeight*scale));
-
-    const canvas=document.createElement('canvas');
-    canvas.width=targetWidth;
-    canvas.height=targetHeight;
-
-    const ctx=canvas.getContext('2d',{alpha:false});
-    ctx.fillStyle='#ffffff';
-    ctx.fillRect(0,0,targetWidth,targetHeight);
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality='high';
-    ctx.drawImage(img,0,0,targetWidth,targetHeight);
-
-    return canvasToFile(
-      canvas,
-      'captura_agenda_normalizada_'+Date.now()+'.jpg',
-      .96
-    );
-  }
-
-  async function buildDateFocusFile(file){
-    const img=await loadImageFromFile(file);
-    const sourceWidth=img.naturalWidth||img.width;
-    const sourceHeight=img.naturalHeight||img.height;
-
-    // Tres franjas solapadas cubren toda la captura. Al ampliarlas y apilarlas
-    // en una sola imagen, la segunda lectura de IA recibe la fecha con un tamaño
-    // mucho mayor aunque esté en la parte superior, media o inferior.
-    const segments=[
-      [0.00,0.46],
-      [0.27,0.73],
-      [0.54,1.00]
-    ];
-
-    const targetWidth=2200;
-    const gap=18;
-    const parts=segments.map(([from,to])=>{
-      const sy=Math.round(sourceHeight*from);
-      const sh=Math.max(1,Math.round(sourceHeight*(to-from)));
-      const dh=Math.max(1,Math.round(sh*(targetWidth/sourceWidth)));
-      return {sy,sh,dh};
-    });
-
-    const totalHeight=parts.reduce((sum,p)=>sum+p.dh,0)+gap*(parts.length-1);
-    const canvas=document.createElement('canvas');
-    canvas.width=targetWidth;
-    canvas.height=totalHeight;
-
-    const ctx=canvas.getContext('2d',{alpha:false});
-    ctx.fillStyle='#ffffff';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality='high';
-
-    let y=0;
-    parts.forEach((p,index)=>{
-      ctx.drawImage(img,0,p.sy,sourceWidth,p.sh,0,y,targetWidth,p.dh);
-      y+=p.dh;
-      if(index<parts.length-1){
-        ctx.fillStyle='#ffffff';
-        ctx.fillRect(0,y,targetWidth,gap);
-        y+=gap;
-      }
-    });
-
-    return canvasToFile(
-      canvas,
-      'captura_agenda_busqueda_fecha_'+Date.now()+'.jpg',
-      .94
-    );
-  }
-
   async function processAgenda(){
     const file=pastedSourceFile || q('#alcaldiaSourceFile')?.files?.[0];
     const rawText=String(q('#alcaldiaRawText')?.value||'').trim();
@@ -453,43 +340,6 @@
       extracted=Array.isArray(out?.events) ? out.events : [];
       let agendaDate=String(out?.fechaAgenda||extracted.find(e=>String(e?.fecha||'').trim())?.fecha||'').trim();
 
-      // Si la primera lectura encuentra las actividades pero no la fecha,
-      // generamos una imagen especial con tres franjas ampliadas que cubren
-      // toda la captura. Esto corrige específicamente el caso de Ctrl+V desde
-      // Recortes de Windows, donde el texto pequeño de la fecha podía perderse.
-      if(file && extracted.length && !agendaDate){
-        if(st) st.textContent='Actividades detectadas. Ampliando la captura para leer la fecha…';
-
-        try{
-          const dateFocusFile=await buildDateFocusFile(file);
-          const retryPayload={
-            rawText:[
-              rawText,
-              'LECTURA DE FECHA: identifica únicamente la fecha general que corresponde a esta agenda. Revisa cualquier fecha visible en toda la imagen, incluidas cabeceras o separadores. Devuelve esa fecha como fechaAgenda en YYYY-MM-DD y úsala también como fecha de los eventos cuando corresponda. No uses la hora de envío de WhatsApp como fecha y no inventes una fecha.'
-            ].filter(Boolean).join('\n'),
-            fileName:dateFocusFile.name,
-            mimeType:dateFocusFile.type,
-            dataUrl:await fileToDataURL(dateFocusFile)
-          };
-
-          const retry=await serverCall('extractAlcaldia',retryPayload);
-          const retryEvents=Array.isArray(retry?.events)?retry.events:[];
-          agendaDate=String(
-            retry?.fechaAgenda ||
-            retryEvents.find(e=>String(e?.fecha||'').trim())?.fecha ||
-            ''
-          ).trim();
-
-          if(agendaDate){
-            extracted=extracted.map(e=>({
-              ...e,
-              fecha:String(e?.fecha||'').trim()||agendaDate
-            }));
-          }
-        }catch(err){
-          console.warn('No se pudo recuperar la fecha en la segunda lectura:',err);
-        }
-      }
 
       if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value=agendaDate;
       renderPreview();
@@ -497,7 +347,7 @@
       if(st) st.textContent=extracted.length
         ? (agendaDate
             ? extracted.length+' actividades detectadas. Revise los datos antes de guardar.'
-            : extracted.length+' actividades detectadas. Falta confirmar la fecha de la agenda.')
+            : extracted.length+' actividades detectadas. La captura no contiene una fecha reconocible; ingrésela manualmente antes de guardar.')
         : 'La IA no detectó actividades.';
     }catch(err){
       if(st) st.textContent='No se pudo procesar: '+String(err?.message||err).slice(0,220);
@@ -807,7 +657,7 @@
         if(!isPaste&&!isFocusKey) e.preventDefault();
       });
 
-      pasteZone.addEventListener('paste',async e=>{
+      pasteZone.addEventListener('paste',e=>{
         e.preventDefault();
 
         const items=[...(e.clipboardData?.items||[])];
@@ -821,37 +671,21 @@
         const blob=imageItem.getAsFile();
         if(!blob) return;
 
+        const ext=(String(blob.type||'image/png').split('/')[1]||'png').replace(/[^a-z0-9]+/gi,'')||'png';
+        pastedSourceFile=new File(
+          [blob],
+          'captura_agenda_'+Date.now()+'.'+ext,
+          {type:blob.type||'image/png'}
+        );
+
         const input=q('#alcaldiaSourceFile');
         if(input) input.value='';
 
-        const processBtn=q('#alcaldiaProcess');
-        if(processBtn) processBtn.disabled=true;
-        q('#alcaldiaProcessState').textContent='Preparando la captura para lectura precisa…';
-        q('#alcaldiaFileName').textContent='Preparando captura pegada…';
+        pasteZone.innerHTML='';
+        pasteZone.classList.add('has-image');
 
-        try{
-          pastedSourceFile=await normalizeClipboardImage(blob);
-
-          pasteZone.innerHTML='';
-          pasteZone.classList.add('has-image');
-
-          q('#alcaldiaFileName').textContent='Captura pegada y optimizada para lectura';
-          q('#alcaldiaProcessState').textContent='Captura lista para procesar.';
-        }catch(err){
-          // Si la normalización fallara, conservamos la imagen original para no
-          // bloquear el flujo.
-          pastedSourceFile=new File(
-            [blob],
-            'captura_agenda_'+Date.now()+'.png',
-            {type:blob.type||'image/png'}
-          );
-          pasteZone.innerHTML='';
-          pasteZone.classList.add('has-image');
-          q('#alcaldiaFileName').textContent='Captura pegada desde el portapapeles';
-          q('#alcaldiaProcessState').textContent='Captura lista para procesar.';
-        }finally{
-          if(processBtn) processBtn.disabled=false;
-        }
+        q('#alcaldiaFileName').textContent='Captura pegada desde el portapapeles';
+        q('#alcaldiaProcessState').textContent='Captura lista para procesar.';
       });
     }
 
