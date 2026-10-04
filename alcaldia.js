@@ -335,16 +335,53 @@
         dataUrl:file?await fileToDataURL(file):''
       };
 
-      const out=await serverCall('extractAlcaldia',payload);
+      let out=await serverCall('extractAlcaldia',payload);
 
       extracted=Array.isArray(out?.events) ? out.events : [];
-      const agendaDate=String(out?.fechaAgenda||extracted[0]?.fecha||'');
+      let agendaDate=String(out?.fechaAgenda||extracted.find(e=>String(e?.fecha||'').trim())?.fecha||'').trim();
+
+      // En capturas pegadas desde el portapapeles, algunos navegadores entregan
+      // la imagen con metadatos distintos a un archivo seleccionado. Si la IA
+      // detecta actividades pero omite la fecha general, hacemos una segunda
+      // lectura enfocada únicamente en recuperar la fecha visible de la agenda.
+      if(file && extracted.length && !agendaDate){
+        if(st) st.textContent='Actividades detectadas. Verificando la fecha de la agenda…';
+
+        try{
+          const retryPayload={
+            ...payload,
+            rawText:[
+              rawText,
+              'INSTRUCCIÓN DE VERIFICACIÓN: revisa nuevamente la imagen y devuelve la fecha general visible de la agenda. No inventes la fecha. Si aparece escrita en palabras o números, conviértela a YYYY-MM-DD.'
+            ].filter(Boolean).join('\n')
+          };
+
+          const retry=await serverCall('extractAlcaldia',retryPayload);
+          const retryEvents=Array.isArray(retry?.events)?retry.events:[];
+          agendaDate=String(
+            retry?.fechaAgenda ||
+            retryEvents.find(e=>String(e?.fecha||'').trim())?.fecha ||
+            ''
+          ).trim();
+
+          if(agendaDate){
+            extracted=extracted.map(e=>({
+              ...e,
+              fecha:String(e?.fecha||'').trim()||agendaDate
+            }));
+          }
+        }catch(_){
+          // Conserva la primera extracción; el usuario todavía puede fijar la fecha manualmente.
+        }
+      }
 
       if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value=agendaDate;
       renderPreview();
 
       if(st) st.textContent=extracted.length
-        ? extracted.length+' actividades detectadas. Revise los datos antes de guardar.'
+        ? (agendaDate
+            ? extracted.length+' actividades detectadas. Revise los datos antes de guardar.'
+            : extracted.length+' actividades detectadas. Falta confirmar la fecha de la agenda.')
         : 'La IA no detectó actividades.';
     }catch(err){
       if(st) st.textContent='No se pudo procesar: '+String(err?.message||err).slice(0,220);
@@ -549,7 +586,13 @@
       renderDaily();
       renderHistory();
     }catch(err){
-      window.alert('No se pudo borrar: '+String(err?.message||err).slice(0,220));
+      const raw=String(err?.message||err);
+      const msg=/PERMISO_INSUFICIENTE/i.test(raw)
+        ? 'No se pudo borrar: el backend está restringiendo esta acción por permisos. Debe habilitarse deleteAlcaldiaEvent para el mismo perfil que ya puede guardar la cartelera.'
+        : 'No se pudo borrar: '+raw.slice(0,220);
+
+      window.alert(msg);
+
       if(button){
         button.disabled=false;
         button.textContent=original;
