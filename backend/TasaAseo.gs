@@ -376,19 +376,59 @@ function normalizeTasaDate_(value) {
 }
 
 function normalizeTasaTime_(value) {
-  const s = String(value || '').trim().toUpperCase();
-  if (!s) return '';
 
-  const m = s.match(/^(\d{1,2})(?:[:H\.])(\d{2})$/);
-  if (!m) return s;
+  if (
+    value instanceof Date &&
+    !isNaN(value.getTime())
+  ) {
+    return Utilities.formatDate(
+      value,
+      AH.TZ,
+      'HH:mm'
+    );
+  }
+
+  const s = String(value || '').trim().toUpperCase();
+
+  if (!s) {
+    return '';
+  }
+
+  let m =
+    s.match(/^(\d{1,2})(?:[:H\.])(\d{2})(?::\d{2})?$/);
+
+  if (!m) {
+    m =
+      s.match(/\b(\d{1,2}):(\d{2}):\d{2}\s+GMT/i) ||
+      s.match(/\b(\d{1,2}):(\d{2})\b/);
+  }
+
+  if (!m) {
+    return s;
+  }
 
   const h = Number(m[1]);
   const min = Number(m[2]);
 
-  if (h === 24 && min === 0) return '24:00';
-  if (h < 0 || h > 23 || min < 0 || min > 59) return s;
+  if (h === 24 && min === 0) {
+    return '24:00';
+  }
 
-  return String(h).padStart(2,'0') + ':' + String(min).padStart(2,'0');
+  if (
+    h < 0 ||
+    h > 23 ||
+    min < 0 ||
+    min > 59
+  ) {
+    return s;
+  }
+
+  return (
+    String(h).padStart(2,'0') +
+    ':' +
+    String(min).padStart(2,'0')
+  );
+
 }
 
 function getTasaAseoFolder_() {
