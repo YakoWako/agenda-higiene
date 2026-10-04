@@ -66,6 +66,7 @@
   let extracted=[];
   let loadedOnce=false;
   let pastedSourceFile=null;
+  let editingEventId='';
 
   function showView(view){
     ['daily','history','load'].forEach(name=>{
@@ -146,6 +147,11 @@
               <input type="checkbox" data-alcaldia-asistio="${esc(e.id)}" ${e.asistio?'checked':''}>
               Asistió
             </label>
+
+            <div class="alcaldia-actions">
+              <button class="secondary" type="button" data-alcaldia-edit="${esc(e.id)}">✏️ Editar</button>
+              <button class="danger" type="button" data-alcaldia-delete="${esc(e.id)}">🗑️ Borrar</button>
+            </div>
           </div>
         </article>`;
     }).join('') : '<div class="empty">No hay actividades de Alcaldía registradas para este día.</div>';
@@ -156,6 +162,14 @@
 
     board.querySelectorAll('[data-alcaldia-asistio]').forEach(chk=>{
       chk.onchange=()=>updateTracking(chk.dataset.alcaldiaAsistio,{asistio:chk.checked});
+    });
+
+    board.querySelectorAll('[data-alcaldia-edit]').forEach(btn=>{
+      btn.onclick=()=>openEditModal(btn.dataset.alcaldiaEdit);
+    });
+
+    board.querySelectorAll('[data-alcaldia-delete]').forEach(btn=>{
+      btn.onclick=()=>deleteAlcaldiaEventFromUi(btn.dataset.alcaldiaDelete,btn);
     });
   }
 
@@ -263,6 +277,13 @@
     pastedSourceFile=null;
 
     if(q('#alcaldiaFileName')) q('#alcaldiaFileName').textContent='Sin captura seleccionada';
+
+    const pasteZone=q('#alcaldiaPasteZone');
+    if(pasteZone){
+      pasteZone.classList.remove('has-image');
+      pasteZone.innerHTML='';
+    }
+
     if(q('#alcaldiaRawText')) q('#alcaldiaRawText').value='';
     if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value='';
     if(q('#alcaldiaProcessState')) q('#alcaldiaProcessState').textContent='';
@@ -389,6 +410,118 @@
     }
   }
 
+  function closeEditModal(){
+    editingEventId='';
+    q('#alcaldiaEditModal')?.classList.remove('open');
+    if(q('#alcaldiaEditState')) q('#alcaldiaEditState').textContent='';
+  }
+
+  function openEditModal(id){
+    const e=events.find(x=>String(x.id)===String(id));
+    if(!e) return;
+
+    editingEventId=String(id);
+
+    q('#alcaldiaEditFecha').value=String(e.fecha||'');
+    q('#alcaldiaEditHoraInicio').value=normalizeTime(e.horaInicio||'');
+    q('#alcaldiaEditHoraFin').value=normalizeTime(e.horaFin||'');
+    q('#alcaldiaEditLlegada').value=normalizeTime(e.llegadaAlcaldesa||'');
+    q('#alcaldiaEditNombre').value=String(e.nombreEvento||'');
+    q('#alcaldiaEditLugar').value=String(e.lugar||'');
+    q('#alcaldiaEditUbicacion').value=String(e.ubicacionUrl||'');
+    q('#alcaldiaEditObservaciones').value=String(e.observaciones||'');
+    q('#alcaldiaEditEstado').value=String(e.estado||'ACTIVO').toUpperCase();
+    q('#alcaldiaEditState').textContent='';
+
+    q('#alcaldiaEditModal').classList.add('open');
+    setTimeout(()=>q('#alcaldiaEditNombre')?.focus(),30);
+  }
+
+  async function saveEditedAlcaldiaEvent(){
+    if(!editingEventId) return;
+
+    const patch={
+      fecha:String(q('#alcaldiaEditFecha')?.value||'').trim(),
+      horaInicio:normalizeTime(q('#alcaldiaEditHoraInicio')?.value||''),
+      horaFin:normalizeTime(q('#alcaldiaEditHoraFin')?.value||''),
+      llegadaAlcaldesa:normalizeTime(q('#alcaldiaEditLlegada')?.value||''),
+      nombreEvento:String(q('#alcaldiaEditNombre')?.value||'').trim(),
+      lugar:String(q('#alcaldiaEditLugar')?.value||'').trim(),
+      ubicacionUrl:String(q('#alcaldiaEditUbicacion')?.value||'').trim(),
+      observaciones:String(q('#alcaldiaEditObservaciones')?.value||'').trim(),
+      estado:String(q('#alcaldiaEditEstado')?.value||'ACTIVO').trim().toUpperCase()
+    };
+
+    const st=q('#alcaldiaEditState');
+    if(!patch.fecha){
+      if(st) st.textContent='Seleccione la fecha del evento.';
+      return;
+    }
+
+    if(!patch.nombreEvento){
+      if(st) st.textContent='Ingrese el nombre de la actividad.';
+      return;
+    }
+
+    const btn=q('#alcaldiaEditSave');
+    const original=btn?.textContent||'Guardar cambios';
+
+    try{
+      if(btn){
+        btn.disabled=true;
+        btn.textContent='Guardando…';
+      }
+      if(st) st.textContent='Guardando cambios…';
+
+      const saved=await serverCall('updateAlcaldiaEvent',editingEventId,patch);
+      const e=events.find(x=>String(x.id)===String(editingEventId));
+      if(e) Object.assign(e,patch,(saved&&typeof saved==='object')?saved:{});
+
+      selectedDate=patch.fecha;
+      closeEditModal();
+      renderDaily();
+      renderHistory();
+    }catch(err){
+      if(st) st.textContent='No se pudo guardar: '+String(err?.message||err).slice(0,220);
+    }finally{
+      if(btn){
+        btn.disabled=false;
+        btn.textContent=original;
+      }
+    }
+  }
+
+  async function deleteAlcaldiaEventFromUi(id,button){
+    const e=events.find(x=>String(x.id)===String(id));
+    if(!e) return;
+
+    const name=String(e.nombreEvento||'esta actividad').trim();
+    const ok=window.confirm(
+      '¿Borrar definitivamente esta actividad de la cartelera?\n\n'+name+'\n\nEsta acción no se puede deshacer.'
+    );
+    if(!ok) return;
+
+    const original=button?.textContent||'🗑️ Borrar';
+
+    try{
+      if(button){
+        button.disabled=true;
+        button.textContent='Borrando…';
+      }
+
+      await serverCall('deleteAlcaldiaEvent',String(id));
+      events=events.filter(x=>String(x.id)!==String(id));
+      renderDaily();
+      renderHistory();
+    }catch(err){
+      window.alert('No se pudo borrar: '+String(err?.message||err).slice(0,220));
+      if(button){
+        button.disabled=false;
+        button.textContent=original;
+      }
+    }
+  }
+
   async function updateTracking(id,patch){
     const e=events.find(x=>String(x.id)===String(id));
     if(!e) return;
@@ -458,24 +591,38 @@
 
     q('#alcaldiaSourceFile').onchange=()=>{
       pastedSourceFile=null;
+      const pasteZone=q('#alcaldiaPasteZone');
+      if(pasteZone){
+        pasteZone.classList.remove('has-image');
+        pasteZone.innerHTML='';
+      }
       q('#alcaldiaFileName').textContent=q('#alcaldiaSourceFile').files[0]?.name||'Sin captura seleccionada';
     };
 
     const pasteZone=q('#alcaldiaPasteZone');
 
     if(pasteZone){
-      pasteZone.addEventListener('click',e=>{
-        if(e.target.closest('button')) return;
+      pasteZone.addEventListener('click',()=>{
         pasteZone.focus();
       });
 
+      pasteZone.addEventListener('keydown',e=>{
+        const key=String(e.key||'').toLowerCase();
+        const isPaste=(e.ctrlKey||e.metaKey)&&key==='v';
+        const isFocusKey=['tab','shift','control','meta'].includes(key);
+        if(!isPaste&&!isFocusKey) e.preventDefault();
+      });
+
       pasteZone.addEventListener('paste',e=>{
+        e.preventDefault();
+
         const items=[...(e.clipboardData?.items||[])];
         const imageItem=items.find(item=>item.kind==='file' && /^image\//i.test(item.type||''));
 
-        if(!imageItem) return;
-
-        e.preventDefault();
+        if(!imageItem){
+          q('#alcaldiaProcessState').textContent='El portapapeles no contiene una imagen. Realice el recorte y vuelva a presionar Ctrl+V.';
+          return;
+        }
 
         const blob=imageItem.getAsFile();
         if(!blob) return;
@@ -489,6 +636,9 @@
 
         const input=q('#alcaldiaSourceFile');
         if(input) input.value='';
+
+        pasteZone.innerHTML='';
+        pasteZone.classList.add('has-image');
 
         q('#alcaldiaFileName').textContent='Captura pegada desde el portapapeles';
         q('#alcaldiaProcessState').textContent='Captura lista para procesar.';
@@ -514,6 +664,13 @@
 
     q('#alcaldiaClear').onclick=clearLoad;
     q('#alcaldiaSave').onclick=saveAgenda;
+
+    q('#alcaldiaEditClose').onclick=closeEditModal;
+    q('#alcaldiaEditCancel').onclick=closeEditModal;
+    q('#alcaldiaEditSave').onclick=saveEditedAlcaldiaEvent;
+    q('#alcaldiaEditModal').onclick=e=>{
+      if(e.target===q('#alcaldiaEditModal')) closeEditModal();
+    };
 
     const moduleBtn=q('#moduleNav [data-module="alcaldia"]');
     if(moduleBtn){
