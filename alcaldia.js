@@ -81,6 +81,91 @@
     if(view==='history') renderHistory();
   }
 
+  function splitLocationUrls(value){
+    const raw=String(value||'').trim();
+    if(!raw) return [];
+
+    const chunks=raw
+      .replace(/(https?:\/\/)/gi,'\n$1')
+      .split(/\n+/)
+      .map(x=>x.trim())
+      .filter(x=>/^https?:\/\//i.test(x))
+      .map(x=>x.split(/\s+/)[0].replace(/[),.;]+$/g,''))
+      .filter(Boolean);
+
+    return [...new Set(chunks)];
+  }
+
+  function repairLocalCoordinates(url){
+    let out=String(url||'').trim();
+    if(!out) return '';
+
+    out=out.replace(
+      /([?&](?:q|query)=)(-?\d{1,2}(?:\.\d+)?)(,|%2C)(-?\d{2,3}(?:\.\d+)?)/i,
+      (m,prefix,lat,sep,lon)=>{
+        let la=Number(lat);
+        let lo=Number(lon);
+
+        if(
+          Number.isFinite(la) &&
+          Number.isFinite(lo) &&
+          Math.abs(la)<=1.8 &&
+          Math.abs(lo)>=79 &&
+          Math.abs(lo)<=82
+        ){
+          la=-Math.abs(la);
+          lo=-Math.abs(lo);
+          return prefix+String(la)+sep+String(lo);
+        }
+        return m;
+      }
+    );
+
+    return out;
+  }
+
+  function normalizeLocationField(value){
+    return splitLocationUrls(value)
+      .map(repairLocalCoordinates)
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  function fallbackPlaceSearch(lugar){
+    const place=String(lugar||'').trim();
+    if(!place) return '';
+    return 'https://www.google.com/maps/search/?api=1&query='+
+      encodeURIComponent(place+', Manta, Ecuador');
+  }
+
+  function safeLocationHref(url,lugar){
+    const clean=repairLocalCoordinates(url);
+
+    if(/https?:\/\/maps\.app\.goo\.gl\//i.test(clean)){
+      return fallbackPlaceSearch(lugar)||clean;
+    }
+
+    return clean;
+  }
+
+  function locationLinksHtml(e){
+    const urls=splitLocationUrls(e?.ubicacionUrl)
+      .map(repairLocalCoordinates)
+      .filter(Boolean);
+
+    if(!urls.length) return '';
+
+    return '<div class="alcaldia-location-links">'+
+      urls.map((url,index)=>{
+        const href=safeLocationHref(url,e?.lugar);
+        const label=urls.length===1
+          ? 'Abrir ubicación ↗'
+          : 'Ubicación '+(index+1)+' ↗';
+        return '<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(label)+'</a>';
+      }).join('')+
+    '</div>';
+  }
+
   function timeRange(e){
     const start=normalizeTime(e.horaInicio);
     const end=normalizeTime(e.horaFin);
@@ -131,7 +216,7 @@
             <strong>${esc(e.nombreEvento||'Actividad sin nombre')}</strong>
             <div class="alcaldia-place">
               ${e.lugar?`📍 ${esc(e.lugar)}`:''}
-              ${e.ubicacionUrl?`<div style="margin-top:5px"><a href="${esc(e.ubicacionUrl)}" target="_blank" rel="noopener">Abrir ubicación ↗</a></div>`:''}
+              ${locationLinksHtml(e)}
             </div>
             ${e.observaciones?`<div class="muted" style="margin-top:8px">${esc(e.observaciones)}</div>`:''}
           </div>
@@ -226,7 +311,7 @@
           <div class="field"><label>Estado</label><select data-a-field="estado"><option${String(e.estado||'ACTIVO')==='ACTIVO'?' selected':''}>ACTIVO</option><option${String(e.estado||'')==='SUSPENDIDO'?' selected':''}>SUSPENDIDO</option><option${String(e.estado||'')==='REPROGRAMADO'?' selected':''}>REPROGRAMADO</option></select></div>
           <div class="field wide"><label>Actividad / evento</label><input data-a-field="nombreEvento" value="${esc(e.nombreEvento||'')}"></div>
           <div class="field wide"><label>Lugar</label><input data-a-field="lugar" value="${esc(e.lugar||'')}"></div>
-          <div class="field wide"><label>Enlace de ubicación</label><input data-a-field="ubicacionUrl" value="${esc(e.ubicacionUrl||'')}" placeholder="https://maps..."></div>
+          <div class="field wide"><label>Enlace(s) de ubicación</label><textarea data-a-field="ubicacionUrl" rows="3" placeholder="Un enlace por línea">${esc(normalizeLocationField(e.ubicacionUrl||''))}</textarea></div>
           <div class="field wide"><label>Observaciones</label><textarea data-a-field="observaciones" rows="2">${esc(e.observaciones||'')}</textarea></div>
         </div>
       </div>`;
@@ -263,7 +348,7 @@
         llegadaAlcaldesa:normalizeTime(get('llegadaAlcaldesa')),
         nombreEvento:get('nombreEvento'),
         lugar:get('lugar'),
-        ubicacionUrl:get('ubicacionUrl'),
+        ubicacionUrl:normalizeLocationField(get('ubicacionUrl')),
         observaciones:get('observaciones'),
         estado:get('estado')||'ACTIVO'
       };
@@ -337,7 +422,10 @@
 
       let out=await serverCall('extractAlcaldia',payload);
 
-      extracted=Array.isArray(out?.events) ? out.events : [];
+      extracted=(Array.isArray(out?.events) ? out.events : []).map(e=>({
+        ...e,
+        ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
+      }));
       let agendaDate=String(out?.fechaAgenda||extracted.find(e=>String(e?.fecha||'').trim())?.fecha||'').trim();
 
 
@@ -600,7 +688,7 @@
     q('#alcaldiaEditLlegada').value=normalizeTime(e.llegadaAlcaldesa||'');
     q('#alcaldiaEditNombre').value=String(e.nombreEvento||'');
     q('#alcaldiaEditLugar').value=String(e.lugar||'');
-    q('#alcaldiaEditUbicacion').value=String(e.ubicacionUrl||'');
+    q('#alcaldiaEditUbicacion').value=normalizeLocationField(e.ubicacionUrl||'');
     q('#alcaldiaEditObservaciones').value=String(e.observaciones||'');
     q('#alcaldiaEditEstado').value=String(e.estado||'ACTIVO').toUpperCase();
     q('#alcaldiaEditState').textContent='';
@@ -619,7 +707,7 @@
       llegadaAlcaldesa:normalizeTime(q('#alcaldiaEditLlegada')?.value||''),
       nombreEvento:String(q('#alcaldiaEditNombre')?.value||'').trim(),
       lugar:String(q('#alcaldiaEditLugar')?.value||'').trim(),
-      ubicacionUrl:String(q('#alcaldiaEditUbicacion')?.value||'').trim(),
+      ubicacionUrl:normalizeLocationField(q('#alcaldiaEditUbicacion')?.value||''),
       observaciones:String(q('#alcaldiaEditObservaciones')?.value||'').trim(),
       estado:String(q('#alcaldiaEditEstado')?.value||'ACTIVO').trim().toUpperCase()
     };
@@ -723,7 +811,10 @@
 
     try{
       const data=await serverCall('getAlcaldiaData');
-      events=Array.isArray(data?.events)?data.events:[];
+      events=(Array.isArray(data?.events)?data.events:[]).map(e=>({
+        ...e,
+        ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
+      }));
       assignables=Array.isArray(data?.assignables)?data.assignables:[];
       loadedOnce=true;
       renderDaily();
