@@ -65,6 +65,7 @@
   let selectedDate=isoToday();
   let extracted=[];
   let loadedOnce=false;
+  let pastedSourceFile=null;
 
   function showView(view){
     ['daily','history','load'].forEach(name=>{
@@ -259,8 +260,9 @@
 
     const file=q('#alcaldiaSourceFile');
     if(file) file.value='';
+    pastedSourceFile=null;
 
-    if(q('#alcaldiaFileName')) q('#alcaldiaFileName').textContent='Sin archivo seleccionado';
+    if(q('#alcaldiaFileName')) q('#alcaldiaFileName').textContent='Sin captura seleccionada';
     if(q('#alcaldiaRawText')) q('#alcaldiaRawText').value='';
     if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value='';
     if(q('#alcaldiaProcessState')) q('#alcaldiaProcessState').textContent='';
@@ -276,7 +278,7 @@
   }
 
   async function processAgenda(){
-    const file=q('#alcaldiaSourceFile')?.files?.[0];
+    const file=pastedSourceFile || q('#alcaldiaSourceFile')?.files?.[0];
     const rawText=String(q('#alcaldiaRawText')?.value||'').trim();
     const st=q('#alcaldiaProcessState');
 
@@ -455,8 +457,43 @@
     q('#alcaldiaPickFile').onclick=()=>q('#alcaldiaSourceFile').click();
 
     q('#alcaldiaSourceFile').onchange=()=>{
-      q('#alcaldiaFileName').textContent=q('#alcaldiaSourceFile').files[0]?.name||'Sin archivo seleccionado';
+      pastedSourceFile=null;
+      q('#alcaldiaFileName').textContent=q('#alcaldiaSourceFile').files[0]?.name||'Sin captura seleccionada';
     };
+
+    const pasteZone=q('#alcaldiaPasteZone');
+
+    if(pasteZone){
+      pasteZone.addEventListener('click',e=>{
+        if(e.target.closest('button')) return;
+        pasteZone.focus();
+      });
+
+      pasteZone.addEventListener('paste',e=>{
+        const items=[...(e.clipboardData?.items||[])];
+        const imageItem=items.find(item=>item.kind==='file' && /^image\//i.test(item.type||''));
+
+        if(!imageItem) return;
+
+        e.preventDefault();
+
+        const blob=imageItem.getAsFile();
+        if(!blob) return;
+
+        const ext=(String(blob.type||'image/png').split('/')[1]||'png').replace(/[^a-z0-9]+/gi,'')||'png';
+        pastedSourceFile=new File(
+          [blob],
+          'captura_agenda_'+Date.now()+'.'+ext,
+          {type:blob.type||'image/png'}
+        );
+
+        const input=q('#alcaldiaSourceFile');
+        if(input) input.value='';
+
+        q('#alcaldiaFileName').textContent='Captura pegada desde el portapapeles';
+        q('#alcaldiaProcessState').textContent='Captura lista para procesar.';
+      });
+    }
 
     q('#alcaldiaProcess').onclick=processAgenda;
 
