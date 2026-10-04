@@ -328,6 +328,7 @@ function eventStatePill(e){
   $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
 
   bind();
+  initNotificationPreference();
 
   // Carga inmediatamente las listas disponibles en el navegador.
   // Luego Apps Script las actualiza silenciosamente desde Google Sheets.
@@ -778,8 +779,104 @@ function alertRow(x){
 }
   function renderAlerts(){const rows=getTodayAlerts();$('#alertCount').textContent=rows.length;$('#alertCount').classList.toggle('hidden',!rows.length);$('#alertCountLabel').textContent=rows.length;$('#alertsList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty" style="border:0">Sin alertas activas.</div>';$('#alertsModalList').innerHTML=rows.length?rows.map(alertRow).join(''):'<div class="empty">Sin alertas activas.</div>';[$('#alertsList'),$('#alertsModalList')].forEach(el=>el.querySelectorAll('.alert-row').forEach(r=>r.onclick=()=>{closeAlerts();openEventInfo(r.dataset.id)}));maybeNotify(rows);}
   function openAlerts(){$('#alertsModal').classList.add('open')} function closeAlerts(){$('#alertsModal').classList.remove('open')}
-  async function requestNotifications(){if(!('Notification'in window)){toast('Este navegador no admite notificaciones.');return}const p=await Notification.requestPermission();toast(p==='granted'?'Avisos del navegador activados mientras use la app.':'Permiso de notificación no concedido.');}
-  function maybeNotify(rows){if(!('Notification'in window)||Notification.permission!=='granted')return;const today=todayISO();rows.forEach(({e,a})=>{const key=`notif:${today}:${e.id}:${a.urgency}`;if(localStorage.getItem(key))return;new Notification(`Agenda Higiene · ${a.urgency}`,{body:`${e.tema||e.tipo} · ${e.hora||''}`});localStorage.setItem(key,'1')});}
+
+  const NOTIFY_PREF_KEY='agendaHigiene:browserNotificationsEnabled';
+
+  function notificationsEnabled(){
+    return (
+      'Notification' in window &&
+      Notification.permission==='granted' &&
+      localStorage.getItem(NOTIFY_PREF_KEY)==='1'
+    );
+  }
+
+  function updateNotificationButton(){
+    const btn=$('#notifyBtn');
+    if(!btn) return;
+
+    const enabled=notificationsEnabled();
+
+    btn.classList.toggle('notify-active',enabled);
+    btn.setAttribute('aria-pressed',enabled?'true':'false');
+    btn.title=enabled
+      ? 'Avisos del navegador activados · clic para desactivar'
+      : 'Avisos del navegador desactivados · clic para activar';
+  }
+
+  function initNotificationPreference(){
+    if(!('Notification' in window)){
+      updateNotificationButton();
+      return;
+    }
+
+    if(localStorage.getItem(NOTIFY_PREF_KEY)===null){
+      localStorage.setItem(
+        NOTIFY_PREF_KEY,
+        Notification.permission==='granted' ? '1' : '0'
+      );
+    }
+
+    if(Notification.permission!=='granted'){
+      localStorage.setItem(NOTIFY_PREF_KEY,'0');
+    }
+
+    updateNotificationButton();
+  }
+
+  async function requestNotifications(){
+    if(!('Notification' in window)){
+      toast('Este navegador no admite notificaciones.');
+      return;
+    }
+
+    if(notificationsEnabled()){
+      localStorage.setItem(NOTIFY_PREF_KEY,'0');
+      updateNotificationButton();
+      toast('Avisos del navegador desactivados.');
+      return;
+    }
+
+    if(Notification.permission==='denied'){
+      localStorage.setItem(NOTIFY_PREF_KEY,'0');
+      updateNotificationButton();
+      toast('El permiso de notificación está bloqueado en el navegador.');
+      return;
+    }
+
+    if(Notification.permission!=='granted'){
+      const p=await Notification.requestPermission();
+
+      if(p!=='granted'){
+        localStorage.setItem(NOTIFY_PREF_KEY,'0');
+        updateNotificationButton();
+        toast('Permiso de notificación no concedido.');
+        return;
+      }
+    }
+
+    localStorage.setItem(NOTIFY_PREF_KEY,'1');
+    updateNotificationButton();
+    toast('Avisos del navegador activados mientras use la app.');
+  }
+
+  function maybeNotify(rows){
+    if(!notificationsEnabled()) return;
+
+    const today=todayISO();
+
+    rows.forEach(({e,a})=>{
+      const key=`notif:${today}:${e.id}:${a.urgency}`;
+
+      if(localStorage.getItem(key)) return;
+
+      new Notification(
+        `Agenda Higiene · ${a.urgency}`,
+        {body:`${e.tema||e.tipo} · ${e.hora||''}`}
+      );
+
+      localStorage.setItem(key,'1');
+    });
+  }
 
   async function processInput(){
     if (processingInput) return;
