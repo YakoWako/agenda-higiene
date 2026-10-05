@@ -65,7 +65,8 @@
   let selectedDate=isoToday();
   let extracted=[];
   let loadedOnce=false;
-  let pastedSourceFile=null;
+  let sourceFiles=[];
+  const MAX_ALCALDIA_FILES=4;
   let editingEventId='';
 
   function showView(view){
@@ -355,21 +356,60 @@
     }).filter(e=>e.nombreEvento||e.horaInicio||e.lugar);
   }
 
+  function refreshSourceFilesUi(){
+    const label=q('#alcaldiaFileName');
+    const zone=q('#alcaldiaPasteZone');
+
+    if(label){
+      if(!sourceFiles.length){
+        label.textContent='Sin capturas seleccionadas';
+      }else{
+        label.innerHTML=sourceFiles
+          .map((file,index)=>'Captura '+(index+1)+': '+esc(file.name||('imagen_'+(index+1))))
+          .join('<br>');
+      }
+    }
+
+    if(zone){
+      zone.classList.toggle('has-image',sourceFiles.length>0);
+      zone.innerHTML='';
+      if(sourceFiles.length){
+        zone.dataset.count=String(sourceFiles.length);
+      }else{
+        delete zone.dataset.count;
+      }
+    }
+  }
+
+  function setSourceFiles(files){
+    const list=[...(files||[])].filter(Boolean).slice(0,MAX_ALCALDIA_FILES);
+    sourceFiles=list;
+    refreshSourceFilesUi();
+    return sourceFiles.length;
+  }
+
+  function appendSourceFiles(files){
+    const incoming=[...(files||[])].filter(Boolean);
+    let added=0;
+
+    for(const file of incoming){
+      if(sourceFiles.length>=MAX_ALCALDIA_FILES) break;
+      sourceFiles.push(file);
+      added++;
+    }
+
+    refreshSourceFilesUi();
+    return added;
+  }
+
   function clearLoad(){
     extracted=[];
     renderPreview();
 
     const file=q('#alcaldiaSourceFile');
     if(file) file.value='';
-    pastedSourceFile=null;
-
-    if(q('#alcaldiaFileName')) q('#alcaldiaFileName').textContent='Sin captura seleccionada';
-
-    const pasteZone=q('#alcaldiaPasteZone');
-    if(pasteZone){
-      pasteZone.classList.remove('has-image');
-      pasteZone.innerHTML='';
-    }
+    sourceFiles=[];
+    refreshSourceFilesUi();
 
     if(q('#alcaldiaRawText')) q('#alcaldiaRawText').value='';
     if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value='';
@@ -386,12 +426,12 @@
   }
 
   async function processAgenda(){
-    const file=pastedSourceFile || q('#alcaldiaSourceFile')?.files?.[0];
+    const files=[...sourceFiles];
     const rawText=String(q('#alcaldiaRawText')?.value||'').trim();
     const st=q('#alcaldiaProcessState');
 
-    if(!file&&!rawText){
-      if(st) st.textContent='Seleccione una captura o pegue el texto de la agenda.';
+    if(!files.length&&!rawText){
+      if(st) st.textContent='Seleccione o pegue al menos una captura, o pegue el texto de la agenda.';
       return;
     }
 
@@ -410,31 +450,100 @@
       timer=setInterval(tick,450);
     }
 
-    if(st) st.textContent='Analizando y separando las actividades…';
+    if(st){
+      st.textContent=files.length>1
+        ? 'Analizando '+files.length+' capturas y consolidando las actividades…'
+        : 'Analizando y separando las actividades…';
+    }
 
     try{
-      const payload={
-        rawText,
-        fileName:file?.name||'',
-        mimeType:file?.type||'',
-        dataUrl:file?await fileToDataURL(file):''
-      };
+      const allEvents=[];
+      let agendaDate='';
 
-      let out=await serverCall('extractAlcaldia',payload);
+      if(files.length){
+        for(let i=0;i<files.length;i++){
+          const file=files[i];
 
-      extracted=(Array.isArray(out?.events) ? out.events : []).map(e=>({
+          if(st && files.length>1){
+            st.textContent='Procesando captura '+(i+1)+' de '+files.length+'…';
+          }
+
+          const out=await serverCall('extractAlcaldia',{
+            rawText:i===0?rawText:'',
+            fileName:file?.name||'',
+            mimeType:file?.type||'',
+            dataUrl:await fileToDataURL(file)
+          });
+
+          const rows=(Array.isArray(out?.events)?out.events:[]).map(e=>({
+            ...e,
+            ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
+          }));
+
+          const foundDate=String(
+            out?.fechaAgenda ||
+            rows.find(e=>String(e?.fecha||'').trim())?.fecha ||
+            ''
+          ).trim();
+
+          if(!agendaDate && foundDate) agendaDate=foundDate;
+          allEvents.push(...rows);
+        }
+      }else{
+        const out=await serverCall('extractAlcaldia',{
+          rawText,
+          fileName:'',
+          mimeType:'',
+          dataUrl:''
+        });
+
+        const rows=(Array.isArray(out?.events)?out.events:[]).map(e=>({
+          ...e,
+          ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
+        }));
+
+        agendaDate=String(
+          out?.fechaAgenda ||
+          rows.find(e=>String(e?.fecha||'').trim())?.fecha ||
+          ''
+        ).trim();
+
+        allEvents.push(...rows);
+      }
+
+      const dated=allEvents.map(e=>({
         ...e,
-        ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
+        fecha:String(e?.fecha||'').trim()||agendaDate
       }));
-      let agendaDate=String(out?.fechaAgenda||extracted.find(e=>String(e?.fecha||'').trim())?.fecha||'').trim();
 
+      const merged=[];
+      dated.forEach(row=>{
+        const duplicate=merged.find(existing=>sameAlcaldiaEvent(row,existing));
+
+        if(!duplicate){
+          merged.push(row);
+          return;
+        }
+
+        const urls=[
+          ...splitLocationUrls(duplicate.ubicacionUrl),
+          ...splitLocationUrls(row.ubicacionUrl)
+        ];
+        duplicate.ubicacionUrl=normalizeLocationField(urls.join('\n'));
+
+        if(!duplicate.observaciones && row.observaciones){
+          duplicate.observaciones=row.observaciones;
+        }
+      });
+
+      extracted=merged;
 
       if(q('#alcaldiaAgendaDate')) q('#alcaldiaAgendaDate').value=agendaDate;
       renderPreview();
 
       if(st) st.textContent=extracted.length
         ? (agendaDate
-            ? extracted.length+' actividades detectadas. Revise los datos antes de guardar.'
+            ? extracted.length+' actividades detectadas y consolidadas. Revise los datos antes de guardar.'
             : extracted.length+' actividades detectadas. La captura no contiene una fecha reconocible; ingrésela manualmente antes de guardar.')
         : 'La IA no detectó actividades.';
     }catch(err){
@@ -859,13 +968,13 @@
     q('#alcaldiaPickFile').onclick=()=>q('#alcaldiaSourceFile').click();
 
     q('#alcaldiaSourceFile').onchange=()=>{
-      pastedSourceFile=null;
-      const pasteZone=q('#alcaldiaPasteZone');
-      if(pasteZone){
-        pasteZone.classList.remove('has-image');
-        pasteZone.innerHTML='';
+      const files=[...(q('#alcaldiaSourceFile').files||[])];
+
+      if(files.length>MAX_ALCALDIA_FILES){
+        window.alert('Puede procesar hasta '+MAX_ALCALDIA_FILES+' capturas a la vez. Se usarán las primeras '+MAX_ALCALDIA_FILES+'.');
       }
-      q('#alcaldiaFileName').textContent=q('#alcaldiaSourceFile').files[0]?.name||'Sin captura seleccionada';
+
+      setSourceFiles(files.slice(0,MAX_ALCALDIA_FILES));
     };
 
     const pasteZone=q('#alcaldiaPasteZone');
@@ -886,31 +995,42 @@
         e.preventDefault();
 
         const items=[...(e.clipboardData?.items||[])];
-        const imageItem=items.find(item=>item.kind==='file' && /^image\//i.test(item.type||''));
+        const imageItems=items.filter(item=>item.kind==='file' && /^image\//i.test(item.type||''));
 
-        if(!imageItem){
+        if(!imageItems.length){
           q('#alcaldiaProcessState').textContent='El portapapeles no contiene una imagen. Realice el recorte y vuelva a presionar Ctrl+V.';
           return;
         }
 
-        const blob=imageItem.getAsFile();
-        if(!blob) return;
+        if(sourceFiles.length>=MAX_ALCALDIA_FILES){
+          window.alert('Ya alcanzó el máximo de '+MAX_ALCALDIA_FILES+' capturas.');
+          return;
+        }
 
-        const ext=(String(blob.type||'image/png').split('/')[1]||'png').replace(/[^a-z0-9]+/gi,'')||'png';
-        pastedSourceFile=new File(
-          [blob],
-          'captura_agenda_'+Date.now()+'.'+ext,
-          {type:blob.type||'image/png'}
-        );
+        const added=[];
+        imageItems.forEach(item=>{
+          if(sourceFiles.length+added.length>=MAX_ALCALDIA_FILES) return;
+
+          const blob=item.getAsFile();
+          if(!blob) return;
+
+          const ext=(String(blob.type||'image/png').split('/')[1]||'png').replace(/[^a-z0-9]+/gi,'')||'png';
+          added.push(new File(
+            [blob],
+            'captura_agenda_'+(sourceFiles.length+added.length+1)+'_'+Date.now()+'.'+ext,
+            {type:blob.type||'image/png'}
+          ));
+        });
+
+        appendSourceFiles(added);
 
         const input=q('#alcaldiaSourceFile');
         if(input) input.value='';
 
-        pasteZone.innerHTML='';
-        pasteZone.classList.add('has-image');
-
-        q('#alcaldiaFileName').textContent='Captura pegada desde el portapapeles';
-        q('#alcaldiaProcessState').textContent='Captura lista para procesar.';
+        q('#alcaldiaProcessState').textContent=
+          sourceFiles.length===1
+            ? '1 captura lista para procesar.'
+            : sourceFiles.length+' capturas listas para procesar.';
       });
     }
 
