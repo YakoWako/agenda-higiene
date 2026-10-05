@@ -425,6 +425,103 @@
     });
   }
 
+  function loadAgendaImage(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const img=new Image();
+
+      img.onload=()=>{
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+
+      img.onerror=()=>{
+        URL.revokeObjectURL(url);
+        reject(new Error('No se pudo preparar una de las capturas.'));
+      };
+
+      img.src=url;
+    });
+  }
+
+  function canvasToAgendaFile(canvas){
+    return new Promise((resolve,reject)=>{
+      canvas.toBlob(blob=>{
+        if(!blob){
+          reject(new Error('No se pudo crear la imagen consolidada.'));
+          return;
+        }
+
+        resolve(new File(
+          [blob],
+          'agenda_alcaldia_'+Date.now()+'.jpg',
+          {type:'image/jpeg'}
+        ));
+      },'image/jpeg',0.9);
+    });
+  }
+
+  async function combineAgendaImages(files){
+    const images=await Promise.all(files.map(loadAgendaImage));
+    const widest=Math.max(...images.map(img=>img.naturalWidth||img.width||1));
+    const targetWidth=Math.min(1600,Math.max(1200,widest));
+    const gap=14;
+
+    const parts=images.map(img=>{
+      const w=img.naturalWidth||img.width||1;
+      const h=img.naturalHeight||img.height||1;
+      const scale=targetWidth/w;
+      return {
+        img,
+        width:targetWidth,
+        height:Math.max(1,Math.round(h*scale))
+      };
+    });
+
+    const totalHeight=
+      parts.reduce((sum,p)=>sum+p.height,0)+
+      gap*Math.max(0,parts.length-1);
+
+    const canvas=document.createElement('canvas');
+    canvas.width=targetWidth;
+    canvas.height=totalHeight;
+
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+
+    let y=0;
+    parts.forEach((part,index)=>{
+      ctx.drawImage(part.img,0,y,part.width,part.height);
+      y+=part.height;
+
+      if(index<parts.length-1){
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,y,targetWidth,gap);
+        y+=gap;
+      }
+    });
+
+    return canvasToAgendaFile(canvas);
+  }
+
+  function serverCallWithTimeout(fn,timeoutMs,...args){
+    let timeoutId;
+
+    const timeout=new Promise((_,reject)=>{
+      timeoutId=setTimeout(()=>{
+        reject(new Error('TIEMPO_AGOTADO'));
+      },timeoutMs);
+    });
+
+    return Promise.race([
+      serverCall(fn,...args),
+      timeout
+    ]).finally(()=>clearTimeout(timeoutId));
+  }
+
   async function processAgenda(){
     const files=[...sourceFiles];
     const rawText=String(q('#alcaldiaRawText')?.value||'').trim();
@@ -432,6 +529,13 @@
 
     if(!files.length&&!rawText){
       if(st) st.textContent='Seleccione o pegue al menos una captura, o pegue el texto de la agenda.';
+      return;
+    }
+
+    if(files.length>1 && files.some(file=>!/^image\//i.test(file.type||''))){
+      const msg='Para procesar varias capturas a la vez use únicamente imágenes. Los PDF deben procesarse de uno en uno.';
+      if(st) st.textContent=msg;
+      window.alert(msg);
       return;
     }
 
@@ -450,72 +554,52 @@
       timer=setInterval(tick,450);
     }
 
-    if(st){
-      st.textContent=files.length>1
-        ? 'Analizando '+files.length+' capturas y consolidando las actividades…'
-        : 'Analizando y separando las actividades…';
-    }
-
     try{
-      const allEvents=[];
-      let agendaDate='';
+      let payloadFile=null;
+      let instruction=rawText;
 
-      if(files.length){
-        for(let i=0;i<files.length;i++){
-          const file=files[i];
+      if(files.length>1){
+        if(st) st.textContent='Consolidando '+files.length+' capturas en una sola lectura…';
+        payloadFile=await combineAgendaImages(files);
 
-          if(st && files.length>1){
-            st.textContent='Procesando captura '+(i+1)+' de '+files.length+'…';
-          }
-
-          const out=await serverCall('extractAlcaldia',{
-            rawText:i===0?rawText:'',
-            fileName:file?.name||'',
-            mimeType:file?.type||'',
-            dataUrl:await fileToDataURL(file)
-          });
-
-          const rows=(Array.isArray(out?.events)?out.events:[]).map(e=>({
-            ...e,
-            ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
-          }));
-
-          const foundDate=String(
-            out?.fechaAgenda ||
-            rows.find(e=>String(e?.fecha||'').trim())?.fecha ||
-            ''
-          ).trim();
-
-          if(!agendaDate && foundDate) agendaDate=foundDate;
-          allEvents.push(...rows);
-        }
-      }else{
-        const out=await serverCall('extractAlcaldia',{
+        instruction=[
           rawText,
-          fileName:'',
-          mimeType:'',
-          dataUrl:''
-        });
-
-        const rows=(Array.isArray(out?.events)?out.events:[]).map(e=>({
-          ...e,
-          ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
-        }));
-
-        agendaDate=String(
-          out?.fechaAgenda ||
-          rows.find(e=>String(e?.fecha||'').trim())?.fecha ||
-          ''
-        ).trim();
-
-        allEvents.push(...rows);
+          'NOTA TÉCNICA: la imagen contiene '+files.length+' capturas consecutivas de la misma agenda de WhatsApp, apiladas verticalmente. Analízalas como una sola agenda. La fecha general puede aparecer únicamente en la primera captura. No dupliques una actividad si aparece parcialmente repetida entre dos capturas.'
+        ].filter(Boolean).join('\n\n');
+      }else if(files.length===1){
+        payloadFile=files[0];
       }
 
-      const dated=allEvents.map(e=>({
+      if(st) st.textContent='Analizando la agenda completa con IA…';
+
+      const out=await serverCallWithTimeout(
+        'extractAlcaldia',
+        120000,
+        {
+          rawText:instruction,
+          fileName:payloadFile?.name||'',
+          mimeType:payloadFile?.type||'',
+          dataUrl:payloadFile?await fileToDataURL(payloadFile):''
+        }
+      );
+
+      const rows=(Array.isArray(out?.events)?out.events:[]).map(e=>({
+        ...e,
+        ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
+      }));
+
+      const agendaDate=String(
+        out?.fechaAgenda ||
+        rows.find(e=>String(e?.fecha||'').trim())?.fecha ||
+        ''
+      ).trim();
+
+      const dated=rows.map(e=>({
         ...e,
         fecha:String(e?.fecha||'').trim()||agendaDate
       }));
 
+      // Protección adicional contra solapamientos entre capturas.
       const merged=[];
       dated.forEach(row=>{
         const duplicate=merged.find(existing=>sameAlcaldiaEvent(row,existing));
@@ -547,7 +631,13 @@
             : extracted.length+' actividades detectadas. La captura no contiene una fecha reconocible; ingrésela manualmente antes de guardar.')
         : 'La IA no detectó actividades.';
     }catch(err){
-      if(st) st.textContent='No se pudo procesar: '+String(err?.message||err).slice(0,220);
+      const raw=String(err?.message||err);
+      const msg=/TIEMPO_AGOTADO/i.test(raw)
+        ? 'El análisis tardó demasiado y se detuvo automáticamente. Intente nuevamente o reduzca el número de capturas.'
+        : 'No se pudo procesar: '+raw.slice(0,220);
+
+      if(st) st.textContent=msg;
+      if(/TIEMPO_AGOTADO/i.test(raw)) window.alert(msg);
     }finally{
       if(timer) clearInterval(timer);
       if(btn){
