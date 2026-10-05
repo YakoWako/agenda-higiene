@@ -314,6 +314,175 @@
       font-size:11px;
     }
   }
+
+  /* ===== Conectores visuales entre categoría y submenú ===== */
+  :root{
+    --module-connector-x:12.5%;
+    --connector-color:#c4d5c8;
+    --connector-dot:6px;
+    --connector-line:1.5px;
+  }
+
+  .module-nav{
+    border-bottom:0!important;
+    padding-bottom:0!important;
+    margin-bottom:0!important;
+  }
+
+  .module-nav button{
+    position:relative;
+    overflow:visible;
+  }
+
+  /* Punto discreto en el borde inferior de la categoría activa */
+  #moduleNav button.active::after{
+    content:'';
+    position:absolute;
+    left:50%;
+    bottom:-4px;
+    width:var(--connector-dot);
+    height:var(--connector-dot);
+    transform:translateX(-50%);
+    border-radius:50%;
+    background:var(--connector-color);
+    box-shadow:0 0 0 2px #f6faf7;
+    pointer-events:none;
+  }
+
+  /* Los submenús dejan un pequeño espacio para el ramal */
+  #localSubnav,
+  #tasaSubnav,
+  #alcaldiaSubnav,
+  #mingasSubnav{
+    position:relative;
+    padding-top:30px;
+  }
+
+  /* Ramal horizontal */
+  #localSubnav::before,
+  #tasaSubnav::before,
+  #alcaldiaSubnav::before,
+  #mingasSubnav::before{
+    content:'';
+    position:absolute;
+    top:14px;
+    height:var(--connector-line);
+    background:var(--connector-color);
+    border-radius:999px;
+    pointer-events:none;
+  }
+
+  #localSubnav[data-children="4"]::before,
+  #tasaSubnav[data-children="4"]::before,
+  #alcaldiaSubnav[data-children="4"]::before,
+  #mingasSubnav[data-children="4"]::before{
+    left:12.5%;
+    right:12.5%;
+  }
+
+  #localSubnav[data-children="3"]::before,
+  #tasaSubnav[data-children="3"]::before,
+  #alcaldiaSubnav[data-children="3"]::before,
+  #mingasSubnav[data-children="3"]::before{
+    left:12.5%;
+    right:37.5%;
+  }
+
+  /* Tronco que baja desde la categoría activa hasta el ramal */
+  #localSubnav::after,
+  #tasaSubnav::after,
+  #alcaldiaSubnav::after,
+  #mingasSubnav::after{
+    content:'';
+    position:absolute;
+    left:var(--module-connector-x);
+    top:-1px;
+    width:var(--connector-line);
+    height:16px;
+    transform:translateX(-50%);
+    background:var(--connector-color);
+    border-radius:999px;
+    pointer-events:none;
+  }
+
+  #localSubnav > button,
+  #tasaSubnav > button,
+  #alcaldiaSubnav > button,
+  #mingasSubnav > button{
+    position:relative;
+    overflow:visible;
+  }
+
+  /* Bajantes hacia cada botón hijo */
+  #localSubnav > button::before,
+  #tasaSubnav > button::before,
+  #alcaldiaSubnav > button::before,
+  #mingasSubnav > button::before{
+    content:'';
+    position:absolute;
+    left:50%;
+    top:-16px;
+    width:var(--connector-line);
+    height:16px;
+    transform:translateX(-50%);
+    background:var(--connector-color);
+    border-radius:999px;
+    pointer-events:none;
+  }
+
+  /* Punto sobre el borde superior de cada botón hijo */
+  #localSubnav > button::after,
+  #tasaSubnav > button::after,
+  #alcaldiaSubnav > button::after,
+  #mingasSubnav > button::after{
+    content:'';
+    position:absolute;
+    left:50%;
+    top:-4px;
+    width:var(--connector-dot);
+    height:var(--connector-dot);
+    transform:translateX(-50%);
+    border-radius:50%;
+    background:var(--connector-color);
+    box-shadow:0 0 0 2px #f6faf7;
+    pointer-events:none;
+  }
+
+  @media(max-width:560px){
+    #localSubnav,
+    #tasaSubnav,
+    #alcaldiaSubnav,
+    #mingasSubnav{
+      padding-top:26px;
+    }
+
+    #localSubnav::before,
+    #tasaSubnav::before,
+    #alcaldiaSubnav::before,
+    #mingasSubnav::before{
+      top:12px;
+    }
+
+    #localSubnav::after,
+    #tasaSubnav::after,
+    #alcaldiaSubnav::after,
+    #mingasSubnav::after{
+      height:13px;
+    }
+
+    #localSubnav > button::before,
+    #tasaSubnav > button::before,
+    #alcaldiaSubnav > button::before,
+    #mingasSubnav > button::before{
+      top:-14px;
+      height:14px;
+    }
+
+    /* Indicio sutil de que las categorías pueden cambiarse con gesto */
+    #moduleNav{
+      touch-action:pan-y;
+    }
+  }
 </style>
 </head>
 <body>
@@ -672,7 +841,7 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 <script src="tasa.js?v=8"></script>
 <script src="alcaldia.js?v=12"></script>
 <script>
