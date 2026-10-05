@@ -328,6 +328,8 @@ function eventStatePill(e){
   $('#demoBtn').classList.toggle('hidden', !LOCAL_MODE);
 
   bind();
+  bindModuleSwipe();
+  updateModuleConnectors();
   initNotificationPreference();
 
   // Carga inmediatamente las listas disponibles en el navegador.
@@ -556,6 +558,70 @@ function eventStatePill(e){
     setConnectionState('Conexión borrada de este dispositivo.','warn');
   }
 
+  function updateModuleConnectors(){
+    const order=['local','tasa','alcaldia','mingas'];
+    const activeIndex=order.indexOf(currentModule);
+
+    if(activeIndex>=0){
+      const x=12.5+(activeIndex*25);
+      document.documentElement.style.setProperty('--module-connector-x',x+'%');
+    }
+
+    ['localSubnav','tasaSubnav','alcaldiaSubnav','mingasSubnav'].forEach(id=>{
+      const nav=document.getElementById(id);
+      if(!nav) return;
+      nav.dataset.children=String(nav.querySelectorAll(':scope > button').length);
+    });
+  }
+
+  function bindModuleSwipe(){
+    const surface=document.querySelector('main.shell');
+    if(!surface || surface.dataset.moduleSwipeBound==='1') return;
+
+    surface.dataset.moduleSwipeBound='1';
+
+    const order=['local','tasa','alcaldia','mingas'];
+    let startX=0;
+    let startY=0;
+    let tracking=false;
+
+    surface.addEventListener('touchstart',e=>{
+      if(window.innerWidth>768 || !e.touches?.length) return;
+
+      const target=e.target;
+      if(target?.closest?.('input,textarea,select,button,a,[contenteditable="true"],.modal,.drawer')){
+        tracking=false;
+        return;
+      }
+
+      startX=e.touches[0].clientX;
+      startY=e.touches[0].clientY;
+      tracking=true;
+    },{passive:true});
+
+    surface.addEventListener('touchend',e=>{
+      if(!tracking || window.innerWidth>768 || !e.changedTouches?.length) return;
+
+      const endX=e.changedTouches[0].clientX;
+      const endY=e.changedTouches[0].clientY;
+      const dx=endX-startX;
+      const dy=endY-startY;
+      tracking=false;
+
+      if(Math.abs(dx)<70) return;
+      if(Math.abs(dx)<Math.abs(dy)*1.25) return;
+
+      const currentIndex=order.indexOf(currentModule);
+      if(currentIndex<0) return;
+
+      if(dx<0 && currentIndex<order.length-1){
+        switchModule(order[currentIndex+1]);
+      }else if(dx>0 && currentIndex>0){
+        switchModule(order[currentIndex-1]);
+      }
+    },{passive:true});
+  }
+
   function switchModule(module){
     const allowed=['local','tasa','alcaldia','mingas'];
     if(!allowed.includes(module)) return;
@@ -578,6 +644,7 @@ function eventStatePill(e){
       if(localNav) localNav.classList.remove('hidden');
       if(context) context.textContent='Agenda local · gestión operativa';
       showView(localCurrentView||'daily');
+      updateModuleConnectors();
       return;
     }
 
@@ -591,6 +658,7 @@ function eventStatePill(e){
     };
     if(context) context.textContent=labels[module]||'';
 
+    updateModuleConnectors();
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
