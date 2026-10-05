@@ -174,7 +174,147 @@
     @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr)}.today-grid{grid-template-columns:1fr}.commit-row{grid-template-columns:1fr}.commit-row .remove-btn{width:100%}.nav{grid-template-columns:repeat(2,1fr)}.context-head{top:67px}}
     @media(max-width:560px){.shell{padding:12px}.grid-2,.grid-4{grid-template-columns:1fr}.brand small{display:none}.hero{align-items:flex-start;flex-direction:column}.event-card{grid-template-columns:1fr}.event-chips{justify-content:flex-start}.people-grid{grid-template-columns:1fr}.evidence-grid{grid-template-columns:1fr}.context-head{align-items:flex-start;flex-direction:column}.rule-grid{grid-template-columns:1fr}.nav button{font-size:13px}.daily-date-nav{display:grid;grid-template-columns:42px 1fr 42px;gap:8px}.daily-date-center{min-width:0}.daily-date-actions{grid-column:1/-1;margin-left:0;justify-content:center}.daily-picker-wrap{flex:1;justify-content:center}.pagination-wrap{align-items:stretch}.pagination-info{width:100%;text-align:center}.pagination-controls{width:100%;justify-content:center}.pagination-controls button{flex:1}}
   .conn-ok{color:#117541;font-weight:800}.conn-bad{color:#bf2020;font-weight:800}.conn-warn{color:#9c7100;font-weight:800}
-  </style>
+  
+  /* Refinamiento visual de navegación principal y cabeceras */
+  .module-label-mobile{display:none}
+  .module-nav{margin-bottom:10px}
+  .nav{margin-bottom:8px}
+  .module-actions{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .module-actions button{
+    width:100%;
+    min-width:0;
+  }
+  .module-description{
+    margin:0 0 14px;
+    color:var(--muted);
+    font-size:14px;
+    line-height:1.45;
+  }
+  .module-placeholder{margin-top:0}
+
+  @media(max-width:560px){
+    .shell{padding:10px 12px}
+
+    .module-nav{
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
+      margin-bottom:8px;
+      padding-bottom:8px;
+    }
+    .module-nav button{
+      min-width:0;
+      min-height:72px;
+      padding:8px 3px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      font-size:11px;
+      line-height:1.14;
+      border-radius:13px;
+    }
+    .module-label-desktop{display:none}
+    .module-label-mobile{display:inline}
+
+    .nav{
+      grid-template-columns:repeat(4,minmax(0,1fr))!important;
+      gap:6px;
+      margin-bottom:8px;
+    }
+    .nav button{
+      min-width:0;
+      padding:8px 3px;
+      font-size:10px;
+      line-height:1.12;
+      min-height:52px;
+      white-space:normal;
+    }
+
+    .module-actions{
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
+      margin-bottom:8px;
+    }
+    .module-actions button{
+      min-width:0;
+      padding:8px 3px;
+      font-size:10px;
+      line-height:1.12;
+      min-height:52px;
+      white-space:normal;
+    }
+
+    .module-description{
+      margin:0 0 10px;
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    /* Calendario de eventos públicos: mes completo visible sin desplazamiento horizontal */
+    .tasa-calendar-wrap{
+      overflow-x:hidden;
+      overflow-y:auto;
+      border-radius:12px;
+    }
+    .tasa-calendar{
+      min-width:0!important;
+      width:100%;
+      grid-template-columns:repeat(7,minmax(0,1fr));
+    }
+    .tasa-weekday{
+      padding:6px 1px;
+      font-size:8px;
+      letter-spacing:0;
+      overflow:hidden;
+    }
+    .tasa-day{
+      min-width:0;
+      min-height:78px;
+      padding:3px 2px;
+      overflow:hidden;
+    }
+    .tasa-day-num{
+      font-size:9px;
+      margin-bottom:3px;
+    }
+    .tasa-event-chip{
+      padding:3px 2px;
+      margin:2px 0;
+      border-radius:5px;
+      font-size:7px;
+      line-height:1.12;
+      max-height:40px;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp:3;
+      -webkit-box-orient:vertical;
+      word-break:break-word;
+    }
+    .tasa-event-chip small{
+      font-size:7px;
+      margin-top:1px;
+    }
+    .tasa-toolbar{
+      gap:6px;
+      margin:8px 0;
+    }
+    .tasa-toolbar .month-title{
+      min-width:0;
+      flex:1 1 130px;
+      font-size:14px;
+    }
+    .tasa-toolbar .secondary,
+    .tasa-month-picker{
+      padding:7px 9px;
+      font-size:11px;
+    }
+  }
+</style>
 </head>
 <body>
 <header class="topbar">
@@ -189,13 +329,23 @@
 </header>
 <main class="shell">
   <nav class="module-nav" id="moduleNav" aria-label="Categorías principales">
-    <button class="active" data-module="local">Agenda local</button>
-    <button data-module="tasa">Eventos con tasa de aseo</button>
-    <button data-module="alcaldia">Agenda de Alcaldía</button>
-    <button data-module="mingas">Mingas comunitarias</button>
+    <button class="active" data-module="local">
+      <span class="module-label-desktop">AGENDA LOCAL</span>
+      <span class="module-label-mobile">AGENDA<br>LOCAL</span>
+    </button>
+    <button data-module="tasa">
+      <span class="module-label-desktop">EVENTOS PÚBLICOS</span>
+      <span class="module-label-mobile">EVENTOS<br>PÚBLICOS</span>
+    </button>
+    <button data-module="alcaldia">
+      <span class="module-label-desktop">AGENDA ALCALDÍA</span>
+      <span class="module-label-mobile">AGENDA<br>ALCALDÍA</span>
+    </button>
+    <button data-module="mingas">
+      <span class="module-label-desktop">MINGAS BARRIALES</span>
+      <span class="module-label-mobile">MINGAS<br>BARRIALES</span>
+    </button>
   </nav>
-
-  <div class="module-context" id="moduleContext">Agenda local · gestión operativa</div>
 
   <nav class="nav" id="localSubnav">
     <button class="active" data-view="daily">🗓️ Panel diario</button>
@@ -205,7 +355,7 @@
   </nav>
 
   <section id="view-daily" class="section active">
-    <div class="hero"><div><h1>Panel diario</h1><p>Consulte la agenda por fecha. Las alertas corresponden siempre al día de hoy.</p></div></div>
+    <div class="module-description">Consulte la agenda por fecha. Las alertas corresponden siempre al día de hoy.</div>
 
     <div class="daily-date-nav">
       <button class="day-arrow" id="dailyPrevDay" type="button" title="Día anterior">‹</button>
@@ -233,20 +383,21 @@
   </section>
 
   <section id="view-directory" class="section">
-    <div class="hero"><div><h1>Directorio</h1><p>Eventos activos y editables, del más reciente al más antiguo.</p></div></div>
+    <div class="module-description">Eventos activos y editables, del más reciente al más antiguo.</div>
     <div class="toolbar"><div class="search"><span>🔎</span><input id="directorySearch" placeholder="Buscar por tema, tipo, fecha o lugar"></div><select id="directoryFilter" style="padding:11px;border:1px solid var(--line);border-radius:12px"><option value="">Todos</option><option>ASIGNADO</option><option>EJECUTADO</option></select></div>
     <div id="directoryList" class="event-list"></div>
   </section>
 
   <section id="view-general" class="section">
-    <div class="hero"><div><h1>Panel general</h1><p>Histórico de eventos cerrados y suspendidos. Solo lectura.</p></div></div>
+    <div class="module-description">Histórico de eventos cerrados y suspendidos. Solo lectura.</div>
     <div class="toolbar"><div class="search"><span>🔎</span><input id="generalSearch" placeholder="Buscar en el histórico"></div></div>
     <div id="generalList" class="event-list"></div>
     <div id="generalPagination" class="pagination-wrap"></div>
   </section>
 
   <section id="view-register" class="section">
-    <div class="hero"><div><h1>Registro inicial</h1><p>Los cuatro datos de entrada se completan en una misma pantalla.</p></div><button class="secondary hidden" id="demoBtn">Cargar datos de demostración</button></div>
+    <div class="module-description">Los cuatro datos de entrada se completan en una misma pantalla.</div>
+    <button class="secondary hidden" id="demoBtn">Cargar datos de demostración</button>
     <div class="grid grid-4">
       <div class="card"><div class="card-title"><span class="num">A</span>¿Quién eres tú?</div><div class="hint">Persona que registra la información.</div><div class="field"><label>Registrador</label><select id="registrador"></select></div><div class="field hidden" id="registradorOtroWrap"><label>Otro</label><input id="registradorOtro" placeholder="Escriba el nombre"></div></div>
       <div class="card"><div class="card-title"><span class="num">B</span>Fuente</div><div class="field"><label>Origen de la convocatoria</label><select id="fuente"><option value="">Seleccione...</option><option>Correo</option><option>Gestor</option><option>WhatsApp</option><option>Verbal</option><option>Otro</option></select></div><div class="field hidden" id="fuenteOtroWrap"><label>Otra fuente</label><input id="fuenteOtro" placeholder="Especifique"></div></div>
@@ -276,13 +427,12 @@
   </section>
 
   <section id="module-tasa" class="module-placeholder hidden">
-    <div class="hero"><div><h1>Eventos con tasa de aseo</h1><p>Calendario de eventos públicos registrados mediante certificación de tasa de aseo.</p></div></div>
-
     <div class="module-actions" id="tasaSubnav">
       <button class="active" type="button" data-tasa-view="calendar">🗓️ Calendario</button>
       <button type="button" data-tasa-view="records">📋 Registros</button>
       <button type="button" data-tasa-view="register">➕ Nuevo registro</button>
     </div>
+    <div class="module-description">Calendario de eventos públicos registrados mediante certificación de tasa de aseo.</div>
 
     <div id="tasa-view-calendar">
       <div class="tasa-toolbar">
@@ -376,13 +526,12 @@
   </section>
 
   <section id="module-alcaldia" class="module-placeholder hidden">
-    <div class="hero"><div><h1>Agenda de Alcaldía</h1><p>Cartelera diaria de actividades recibidas desde la agenda institucional.</p></div></div>
-
     <div class="module-actions" id="alcaldiaSubnav">
       <button class="active" type="button" data-alcaldia-view="daily">📅 Cartelera diaria</button>
       <button type="button" data-alcaldia-view="history">📚 Histórico</button>
       <button type="button" data-alcaldia-view="load">➕ Cargar agenda</button>
     </div>
+    <div class="module-description">Cartelera diaria de actividades recibidas desde la agenda institucional.</div>
 
     <div id="alcaldia-view-daily">
       <div class="alcaldia-date-nav">
@@ -465,12 +614,12 @@
   </section>
 
   <section id="module-mingas" class="module-placeholder hidden">
-    <div class="hero"><div><h1>Mingas comunitarias</h1><p>Programación, ejecución y cierre de mingas realizadas por la Dirección.</p></div></div>
-    <div class="module-actions">
+    <div class="module-actions" id="mingasSubnav">
       <button class="active" type="button">🧹 Próximas mingas</button>
       <button type="button">📚 Histórico</button>
       <button type="button">➕ Nueva minga</button>
     </div>
+    <div class="module-description">Programación, ejecución y cierre de mingas realizadas por la Dirección.</div>
     <div class="empty">Este módulo incorporará sector, fecha, participantes, metros lineales limpiados, toneladas evacuadas, hasta cinco fotografías verificables, observaciones opcionales y cierre.</div>
   </section>
 </main>
