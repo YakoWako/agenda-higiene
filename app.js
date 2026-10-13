@@ -7,6 +7,7 @@
   let dailySelectedDate = '';
   let currentModule = 'local';
   let localCurrentView = 'daily';
+  let readerPreview = false;
   const GENERAL_PAGE_SIZE = 20;
   let generalPage = 1;
   let savingNewEvent = false;
@@ -356,29 +357,119 @@ function eventStatePill(e){
     return ['ADMIN','EDITOR','LECTURA'].includes(role)?role:'LECTURA';
   }
 
-  function canEdit(){
+  function canSwitchReaderView(){
     return state.role==='ADMIN'||state.role==='EDITOR';
   }
 
+  function isReaderUI(){
+    return state.role==='LECTURA'||readerPreview;
+  }
+
+  function canEdit(){
+    return canSwitchReaderView()&&!isReaderUI();
+  }
+
   function isAdmin(){
-    return state.role==='ADMIN';
+    return state.role==='ADMIN'&&!isReaderUI();
+  }
+
+  window.AgendaViewMode={
+    isReader:()=>isReaderUI(),
+    isPreview:()=>readerPreview,
+    realRole:()=>state.role
+  };
+
+  function forceSafeReaderView(){
+    if(!isReaderUI()) return;
+
+    if(currentModule==='mingas'){
+      switchModule('local');
+    }
+
+    if(localCurrentView==='directory'||localCurrentView==='register'){
+      localCurrentView='daily';
+      if(currentModule==='local') showView('daily');
+    }
+
+    if(currentModule==='tasa'){
+      const active=$('#tasaSubnav [data-tasa-view].active');
+      if(active && active.classList.contains('hidden')){
+        $('#tasaSubnav [data-tasa-view="calendar"]')?.click();
+      }
+    }
+
+    if(currentModule==='alcaldia'){
+      const active=$('#alcaldiaSubnav [data-alcaldia-view].active');
+      if(active && active.classList.contains('hidden')){
+        $('#alcaldiaSubnav [data-alcaldia-view="daily"]')?.click();
+      }
+    }
+  }
+
+  function toggleReaderPreview(){
+    if(!canSwitchReaderView()) return;
+
+    readerPreview=!readerPreview;
+
+    if(readerPreview){
+      closeDrawer();
+      $('#alcaldiaEditModal')?.classList.remove('open');
+    }
+
+    applyRoleUI();
+    toast(readerPreview?'Vista lector activada.':'Vista de gestión restaurada.');
   }
 
   function applyRoleUI(){
+    // Un lector real siempre permanece en la interfaz de lectura.
+    if(state.role==='LECTURA') readerPreview=false;
+
+    const readerUi=isReaderUI();
     const locked=!canEdit();
-    const directoryBtn=$('.nav button[data-view="directory"]');
-    const registerBtn=$('.nav button[data-view="register"]');
+
+    document.body.classList.toggle('reader-ui',readerUi);
+
+    const directoryBtn=$('#localSubnav [data-view="directory"]');
+    const registerBtn=$('#localSubnav [data-view="register"]');
+    const tasaRecordsBtn=$('#tasaSubnav [data-tasa-view="records"]');
+    const tasaRegisterBtn=$('#tasaSubnav [data-tasa-view="register"]');
+    const alcaldiaLoadBtn=$('#alcaldiaSubnav [data-alcaldia-view="load"]');
+
+    [directoryBtn,registerBtn,tasaRecordsBtn,tasaRegisterBtn,alcaldiaLoadBtn].forEach(btn=>{
+      if(!btn) return;
+      btn.classList.toggle('hidden',readerUi);
+    });
 
     [directoryBtn,registerBtn].forEach(btn=>{
       if(!btn)return;
       btn.disabled=locked;
-      btn.style.opacity=locked?'0.5':'';
-      btn.style.cursor=locked?'not-allowed':'';
-      btn.title=locked?'Acceso de solo lectura':'';
+      btn.style.opacity='';
+      btn.style.cursor='';
+      btn.title=readerUi?'Oculto en vista lector':'';
     });
 
+    const viewBtn=$('#viewModeBtn');
+    if(viewBtn){
+      const show=canSwitchReaderView();
+      viewBtn.classList.toggle('hidden',!show);
+      viewBtn.classList.toggle('view-reader-active',readerPreview);
+      viewBtn.textContent=readerPreview?'🛠️':'👁️';
+      viewBtn.title=readerPreview?'Volver a vista de gestión':'Ver como lector';
+      viewBtn.setAttribute('aria-label',viewBtn.title);
+      viewBtn.setAttribute('aria-pressed',readerPreview?'true':'false');
+    }
+
     const roleLabel=$('#connectionRole');
-    if(roleLabel)roleLabel.textContent='Perfil: '+state.role;
+    if(roleLabel){
+      roleLabel.textContent='Perfil: '+state.role+(readerPreview?' · Vista lector':'');
+    }
+
+    forceSafeReaderView();
+    updateModuleConnectors();
+
+    document.dispatchEvent(new CustomEvent('agenda:view-mode-changed',{
+      detail:{reader:readerUi,preview:readerPreview,role:state.role}
+    }));
   }
 
   async function refresh(){
@@ -506,6 +597,7 @@ function eventStatePill(e){
 
   function bind(){
     document.querySelectorAll('#moduleNav button[data-module]').forEach(b=>b.onclick=()=>switchModule(b.dataset.module));
+    $('#viewModeBtn').onclick=toggleReaderPreview;
     document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
     $('#registrador').onchange=()=>$('#registradorOtroWrap').classList.toggle('hidden',$('#registrador').value!=='Otro');
     $('#fuente').onchange=()=>$('#fuenteOtroWrap').classList.toggle('hidden',$('#fuente').value!=='Otro');
@@ -629,6 +721,7 @@ function eventStatePill(e){
   }
   function clearConnection(){
     window.AgendaApi.clear();
+    readerPreview=false;
     state.role='LECTURA';
     $('#accessKey').value='';
     applyRoleUI();
@@ -636,18 +729,39 @@ function eventStatePill(e){
   }
 
   function updateModuleConnectors(){
-    const order=['local','tasa','alcaldia','mingas'];
-    const activeIndex=order.indexOf(currentModule);
+    const sourceByModule={
+      local:100/6,
+      tasa:50,
+      alcaldia:500/6
+    };
 
-    if(activeIndex>=0){
-      const x=12.5+(activeIndex*25);
-      document.documentElement.style.setProperty('--module-connector-x',x+'%');
-    }
+    const sourceX=sourceByModule[currentModule]??(100/6);
+    document.documentElement.style.setProperty('--module-connector-x',sourceX+'%');
 
-    ['localSubnav','tasaSubnav','alcaldiaSubnav','mingasSubnav'].forEach(id=>{
+    const navModules={
+      localSubnav:'local',
+      tasaSubnav:'tasa',
+      alcaldiaSubnav:'alcaldia'
+    };
+
+    Object.entries(navModules).forEach(([id,module])=>{
       const nav=document.getElementById(id);
       if(!nav) return;
-      nav.dataset.children=String(nav.querySelectorAll(':scope > button').length);
+
+      const buttons=[...nav.querySelectorAll(':scope > button')]
+        .filter(btn=>!btn.classList.contains('hidden'));
+
+      const count=Math.max(1,buttons.length);
+      nav.dataset.children=String(count);
+
+      const firstCenter=50/count;
+      const lastCenter=100-(50/count);
+      const moduleSource=sourceByModule[module]??50;
+      const busLeft=Math.min(moduleSource,firstCenter);
+      const busRight=100-Math.max(moduleSource,lastCenter);
+
+      nav.style.setProperty('--connector-bus-left',busLeft+'%');
+      nav.style.setProperty('--connector-bus-right',busRight+'%');
     });
   }
 
@@ -657,7 +771,7 @@ function eventStatePill(e){
 
     surface.dataset.moduleSwipeBound='1';
 
-    const order=['local','tasa','alcaldia','mingas'];
+    const order=['local','tasa','alcaldia'];
     let startX=0;
     let startY=0;
     let tracking=false;
@@ -700,7 +814,7 @@ function eventStatePill(e){
   }
 
   function switchModule(module){
-    const allowed=['local','tasa','alcaldia','mingas'];
+    const allowed=['local','tasa','alcaldia'];
     if(!allowed.includes(module)) return;
 
     currentModule=module;
@@ -709,7 +823,7 @@ function eventStatePill(e){
       btn.classList.toggle('active',btn.dataset.module===module);
     });
 
-    ['tasa','alcaldia','mingas'].forEach(name=>{
+    ['tasa','alcaldia'].forEach(name=>{
       const panel=$('#module-'+name);
       if(panel) panel.classList.toggle('hidden',name!==module);
     });
@@ -730,8 +844,7 @@ function eventStatePill(e){
 
     const labels={
       tasa:'Eventos con tasa de aseo · calendario y certificaciones',
-      alcaldia:'Agenda de Alcaldía · cartelera diaria',
-      mingas:'Mingas comunitarias · programación y cierre'
+      alcaldia:'Agenda de Alcaldía · cartelera diaria'
     };
     if(context) context.textContent=labels[module]||'';
 
