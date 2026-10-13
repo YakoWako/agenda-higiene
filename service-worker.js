@@ -1,10 +1,8 @@
 const CACHE_PREFIX = 'agenda-higiene-static-';
-const CACHE_NAME = CACHE_PREFIX + '2026-10-12-v2';
+const CACHE_NAME = CACHE_PREFIX + '2026-10-13-v3';
 const BASE = '/agenda-higiene/';
 
-const APP_SHELL = [
-  BASE,
-  BASE + 'index.html',
+const STATIC_ASSETS = [
   BASE + 'app.js',
   BASE + 'api.js',
   BASE + 'config.js',
@@ -20,10 +18,12 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', event => {
+  self.skipWaiting();
+
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
       await Promise.all(
-        APP_SHELL.map(asset =>
+        STATIC_ASSETS.map(asset =>
           cache.add(new Request(asset, { cache: 'reload' })).catch(() => null)
         )
       );
@@ -32,23 +32,15 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-
-    await Promise.all(
-      keys
-        .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
-        .map(key => caches.delete(key))
-    );
-
-    if ('navigationPreload' in self.registration) {
-      try {
-        await self.registration.navigationPreload.enable();
-      } catch (_) {}
-    }
-
-    await self.clients.claim();
-  })());
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys
+          .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('message', event => {
@@ -57,47 +49,11 @@ self.addEventListener('message', event => {
   }
 });
 
-function fetchWithTimeout(request, ms = 8000) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ms);
-
-  return fetch(request, {
-    cache: 'no-store',
-    signal: controller.signal
-  }).finally(() => clearTimeout(timeout));
-}
-
-async function navigationResponse(event) {
+async function staticNetworkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
 
   try {
-    const preload = await event.preloadResponse;
-    if (preload) {
-      cache.put(BASE, preload.clone()).catch(() => {});
-      return preload;
-    }
-
-    const response = await fetchWithTimeout(event.request, 8000);
-
-    if (response && response.ok && response.type === 'basic') {
-      cache.put(BASE, response.clone()).catch(() => {});
-    }
-
-    return response;
-  } catch (_) {
-    return (
-      await cache.match(BASE) ||
-      await cache.match(BASE + 'index.html') ||
-      Response.error()
-    );
-  }
-}
-
-async function staticResponse(request) {
-  const cache = await caches.open(CACHE_NAME);
-
-  try {
-    const response = await fetchWithTimeout(request, 8000);
+    const response = await fetch(request, { cache: 'no-store' });
 
     if (response && response.ok && response.type === 'basic') {
       cache.put(request, response.clone()).catch(() => {});
@@ -119,16 +75,16 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
-  // Nunca interceptar Google Apps Script, Drive ni ningún servicio externo.
+  // MUY IMPORTANTE:
+  // Las navegaciones/documentos se dejan completamente al navegador.
+  // Así el service worker no puede bloquear el arranque desde el icono instalado.
+  if (request.mode === 'navigate' || request.destination === 'document') return;
+
+  // Nunca tocar Google Apps Script, Drive ni otros servicios externos.
   if (url.origin !== self.location.origin) return;
 
-  // Mantener fuera del caché cualquier ruta de backend.
+  // Mantener fuera del caché cualquier backend o recurso dinámico.
   if (url.pathname.includes('/backend/')) return;
-
-  if (request.mode === 'navigate') {
-    event.respondWith(navigationResponse(event));
-    return;
-  }
 
   const cacheableDestination = [
     'script',
@@ -139,6 +95,6 @@ self.addEventListener('fetch', event => {
   ].includes(request.destination);
 
   if (cacheableDestination) {
-    event.respondWith(staticResponse(request));
+    event.respondWith(staticNetworkFirst(request));
   }
 });
