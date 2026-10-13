@@ -665,6 +665,238 @@
       grid-template-columns:1fr!important;
     }
   }
+
+  /* ===== Cartelera de Alcaldía compacta · v2 ===== */
+  .alcaldia-board{
+    gap:8px!important;
+  }
+
+  .alcaldia-card{
+    grid-template-columns:108px minmax(0,1fr) 176px!important;
+    gap:10px!important;
+    align-items:center!important;
+    padding:10px 12px!important;
+    border-radius:14px!important;
+    min-height:0!important;
+  }
+
+  .alcaldia-time{
+    justify-content:flex-start!important;
+    padding-right:10px!important;
+  }
+
+  .alcaldia-time strong{
+    font-size:15px!important;
+    line-height:1.2!important;
+  }
+
+  .alcaldia-time small{
+    margin-top:4px!important;
+    font-size:10px!important;
+    line-height:1.25!important;
+  }
+
+  .alcaldia-status{
+    margin-top:5px!important;
+    padding:3px 7px!important;
+    font-size:9px!important;
+  }
+
+  .alcaldia-main strong{
+    font-size:15px!important;
+    line-height:1.25!important;
+  }
+
+  .alcaldia-place{
+    margin-top:4px!important;
+    font-size:12.5px!important;
+    line-height:1.3!important;
+  }
+
+  .alcaldia-location-links{
+    gap:4px!important;
+    margin-top:4px!important;
+  }
+
+  .alcaldia-location-links a{
+    padding:3px 7px!important;
+    font-size:11px!important;
+  }
+
+  .alcaldia-main .muted{
+    margin-top:4px!important;
+    font-size:11.5px!important;
+    line-height:1.3!important;
+  }
+
+  .alcaldia-control{
+    padding-left:10px!important;
+    gap:5px!important;
+  }
+
+  .alcaldia-control label{
+    font-size:9px!important;
+  }
+
+  .alcaldia-control select{
+    padding:6px 7px!important;
+    border-radius:8px!important;
+    font-size:12px!important;
+  }
+
+  .alcaldia-check{
+    gap:6px!important;
+    font-size:11px!important;
+  }
+
+  .alcaldia-check input{
+    width:16px!important;
+    height:16px!important;
+  }
+
+  .alcaldia-actions{
+    gap:5px!important;
+    margin-top:0!important;
+  }
+
+  .alcaldia-actions button{
+    width:30px!important;
+    height:30px!important;
+    min-height:30px!important;
+    font-size:14px!important;
+  }
+
+  /* Vista lector fiel: ninguna acción de edición o eliminación queda visible. */
+  body.reader-ui button.danger,
+  body.reader-ui .remove-btn,
+  body.reader-ui [data-alcaldia-edit],
+  body.reader-ui [data-alcaldia-delete],
+  body.reader-ui #tasaEditEvent,
+  body.reader-ui #tasaDeleteEvent,
+  body.reader-ui [title="Editar"],
+  body.reader-ui [title="Borrar"],
+  body.reader-ui [title="Eliminar"],
+  body.reader-ui [aria-label^="Editar"],
+  body.reader-ui [aria-label^="Borrar"],
+  body.reader-ui [aria-label^="Eliminar"]{
+    display:none!important;
+  }
+
+  /* En Agenda Alcaldía el lector ve sólo la información, sin columna de gestión. */
+  body.reader-ui .alcaldia-control{
+    display:none!important;
+  }
+
+  body.reader-ui .alcaldia-card{
+    grid-template-columns:92px minmax(0,1fr)!important;
+  }
+
+  @media(max-width:900px){
+    .alcaldia-card{
+      grid-template-columns:92px minmax(0,1fr)!important;
+    }
+
+    .alcaldia-control{
+      grid-column:1/-1!important;
+      border-left:0!important;
+      border-top:1px solid #e6eee8!important;
+      padding:7px 0 0!important;
+      display:grid!important;
+      grid-template-columns:minmax(0,1fr) auto!important;
+      align-items:end!important;
+      gap:8px!important;
+    }
+
+    .alcaldia-control > div:first-child{
+      min-width:0;
+    }
+
+    .alcaldia-actions{
+      align-self:end!important;
+    }
+
+    body.reader-ui .alcaldia-control{
+      display:none!important;
+    }
+  }
+
+  @media(max-width:560px){
+    .alcaldia-board{
+      gap:7px!important;
+    }
+
+    .alcaldia-card{
+      grid-template-columns:78px minmax(0,1fr)!important;
+      gap:8px!important;
+      padding:9px 10px!important;
+      border-left-width:4px!important;
+      border-radius:13px!important;
+    }
+
+    .alcaldia-time{
+      border-right:1px solid #e6eee8!important;
+      border-bottom:0!important;
+      padding:0 8px 0 0!important;
+      align-self:stretch!important;
+    }
+
+    .alcaldia-time strong{
+      font-size:13px!important;
+    }
+
+    .alcaldia-time small{
+      font-size:9px!important;
+    }
+
+    .alcaldia-main strong{
+      font-size:14px!important;
+    }
+
+    .alcaldia-place{
+      font-size:11.5px!important;
+    }
+
+    .alcaldia-main .muted{
+      font-size:10.5px!important;
+    }
+
+    .alcaldia-control{
+      grid-template-columns:minmax(0,1fr) auto!important;
+      gap:6px!important;
+      padding-top:6px!important;
+    }
+
+    .alcaldia-control select{
+      font-size:11px!important;
+      padding:5px 6px!important;
+    }
+
+    .alcaldia-check{
+      grid-column:1/2!important;
+      font-size:10px!important;
+    }
+
+    .alcaldia-actions{
+      grid-column:2/3!important;
+      grid-row:1/3!important;
+      align-self:end!important;
+    }
+
+    .alcaldia-actions button{
+      width:28px!important;
+      height:28px!important;
+      min-height:28px!important;
+      font-size:13px!important;
+    }
+
+    body.reader-ui .alcaldia-card{
+      grid-template-columns:78px minmax(0,1fr)!important;
+    }
+
+    body.reader-ui .alcaldia-control{
+      display:none!important;
+    }
+  }
 </style>
 </head>
 <body>
