@@ -1,26 +1,26 @@
 {
-  "id": "./",
+  "id": "/agenda-higiene/",
   "name": "Agenda Higiene",
   "short_name": "Agenda DHS",
   "description": "Sistema de Control Integral de la Dirección de Higiene y Salubridad.",
   "lang": "es",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/agenda-higiene/",
+  "scope": "/agenda-higiene/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#f5f8f5",
   "theme_color": "#207a44",
   "categories": ["productivity", "business"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "./icons/icon-192.png",
+      "src": "/agenda-higiene/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-512.png",
+      "src": "/agenda-higiene/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
