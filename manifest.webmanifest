@@ -4,7 +4,7 @@
   "short_name": "Agenda DHS",
   "description": "Sistema de Control Integral de la Dirección de Higiene y Salubridad.",
   "lang": "es",
-  "start_url": "/agenda-higiene/",
+  "start_url": "/agenda-higiene/index.html?source=pwa",
   "scope": "/agenda-higiene/",
   "display": "standalone",
   "orientation": "any",
@@ -12,6 +12,9 @@
   "theme_color": "#207a44",
   "categories": ["productivity", "business"],
   "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-new"
+  },
   "icons": [
     {
       "src": "/agenda-higiene/icons/icon-192.png",
