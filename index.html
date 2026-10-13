@@ -587,6 +587,84 @@
     .pwa-update-notice span{font-size:12px}
     .pwa-update-notice button{padding:7px 8px}
   }
+
+  /* ===== Vista lector y navegación temporal de 3 módulos ===== */
+  #moduleNav{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+
+  #moduleNav .module-temporarily-hidden,
+  #module-mingas{
+    display:none!important;
+  }
+
+  /* Al quedar tres categorías principales, los submenús de 3 opciones
+     también ocupan todo el ancho sin dejar huecos. */
+  #tasaSubnav,
+  #alcaldiaSubnav{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+
+  /* Vista lector: sólo las opciones de consulta solicitadas. */
+  body.reader-ui #localSubnav{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  body.reader-ui #tasaSubnav{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  body.reader-ui #alcaldiaSubnav{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+
+  /* Evita controles de edición en la cartelera de Alcaldía durante
+     la vista lector, manteniendo intacto el rol real del usuario. */
+  body.reader-ui .alcaldia-control{
+    display:none!important;
+  }
+  body.reader-ui .alcaldia-card{
+    grid-template-columns:145px minmax(0,1fr)!important;
+  }
+
+  /* Si un administrador abre el detalle de un evento público mientras
+     está simulando la vista lector, no mostramos acciones administrativas. */
+  body.reader-ui #tasaEditEvent,
+  body.reader-ui #tasaDeleteEvent{
+    display:none!important;
+  }
+
+  #viewModeBtn.view-reader-active{
+    background:rgba(255,255,255,.34);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.28),0 3px 10px rgba(0,0,0,.10);
+  }
+
+  /* El ramal horizontal se calcula dinámicamente según 1, 2, 3 o 4 hijos. */
+  #localSubnav::before,
+  #tasaSubnav::before,
+  #alcaldiaSubnav::before{
+    left:var(--connector-bus-left,12.5%)!important;
+    right:var(--connector-bus-right,12.5%)!important;
+  }
+
+  @media(max-width:560px){
+    #moduleNav{
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    }
+
+    .top-actions{
+      gap:5px;
+    }
+
+    .top-actions .icon-btn{
+      min-width:38px;
+      width:38px;
+      height:38px;
+      padding:0 7px;
+    }
+
+    body.reader-ui .alcaldia-card{
+      grid-template-columns:1fr!important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -594,6 +672,7 @@
   <div class="topbar-inner">
     <div class="brand"><div class="brand-mark">DHS</div><div>Agenda Higiene<small>Control de eventos y compromisos</small></div></div>
     <div class="top-actions">
+      <button class="icon-btn hidden" id="viewModeBtn" type="button" title="Ver como lector" aria-label="Ver como lector" aria-pressed="false">👁️</button>
       <button class="icon-btn" id="notifyBtn" title="Avisos del navegador (cuando la app está abierta)">🔔</button>
       <button class="icon-btn" id="alertsBtn" title="Alertas">⚠️<span class="badge-count hidden" id="alertCount">0</span></button>
       <button class="icon-btn" id="settingsBtn" title="Conexión y configuración">⚙️</button>
@@ -614,7 +693,7 @@
       <span class="module-label-desktop">AGENDA ALCALDÍA</span>
       <span class="module-label-mobile">AGENDA<br>ALCALDÍA</span>
     </button>
-    <button data-module="mingas">
+    <button data-module="mingas" class="module-temporarily-hidden" aria-hidden="true" tabindex="-1">
       <span class="module-label-desktop">MINGAS BARRIALES</span>
       <span class="module-label-mobile">MINGAS<br>BARRIALES</span>
     </button>
@@ -972,7 +1051,7 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 <script src="tasa.js?v=8"></script>
 <script src="alcaldia.js?v=12"></script>
 <script src="./pwa.js?v=4"></script>
