@@ -21,7 +21,6 @@
   function bindUpdateControls() {
     updateBtn()?.addEventListener('click', () => {
       const waiting = activeRegistration?.waiting;
-
       if (waiting) {
         waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
@@ -34,8 +33,13 @@
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloading) return;
-    reloading = true;
-    window.location.reload();
+
+    // En una actualización normal refrescamos una sola vez.
+    // Durante el primer registro no forzamos navegación adicional.
+    if (navigator.serviceWorker.controller) {
+      reloading = true;
+      window.location.reload();
+    }
   });
 
   window.addEventListener('load', async () => {
@@ -61,7 +65,8 @@
         worker.addEventListener('statechange', () => {
           if (
             worker.state === 'installed' &&
-            navigator.serviceWorker.controller
+            navigator.serviceWorker.controller &&
+            registration.waiting
           ) {
             showNotice(registration);
           }
