@@ -13,6 +13,7 @@
   let savingEventChanges = false;
   let uploadingEvidence = false;
   let processingInput = false;
+  let pastedLocalSourceFile = null;
   const LOCAL_MODE = !!(window.AGENDA_CONFIG && window.AGENDA_CONFIG.localMode);
   const MAX_UPLOAD_MB = Number(window.AGENDA_CONFIG?.maxUploadMB || 7);
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
@@ -476,13 +477,89 @@ function eventStatePill(e){
 
   return updated;
 }
+  function clearLocalPasteState(){
+    pastedLocalSourceFile=null;
+
+    const zone=$('#localPasteZone');
+    if(zone){
+      zone.classList.remove('has-image');
+      zone.innerHTML='';
+    }
+  }
+
+  function setLocalPastedFile(file){
+    pastedLocalSourceFile=file||null;
+
+    const zone=$('#localPasteZone');
+    if(zone){
+      zone.innerHTML='';
+      zone.classList.toggle('has-image',!!pastedLocalSourceFile);
+    }
+
+    const name=$('#fileName');
+    if(name){
+      name.textContent=pastedLocalSourceFile
+        ? 'Captura pegada desde el portapapeles'
+        : ($('#sourceFile')?.files?.[0]?.name||'Sin archivo seleccionado');
+    }
+  }
+
   function bind(){
     document.querySelectorAll('#moduleNav button[data-module]').forEach(b=>b.onclick=()=>switchModule(b.dataset.module));
     document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
     $('#registrador').onchange=()=>$('#registradorOtroWrap').classList.toggle('hidden',$('#registrador').value!=='Otro');
     $('#fuente').onchange=()=>$('#fuenteOtroWrap').classList.toggle('hidden',$('#fuente').value!=='Otro');
     $('#tipo').onchange=()=>$('#tipoOtroWrap').classList.toggle('hidden',$('#tipo').value!=='Otro');
-    $('#pickFileBtn').onclick=()=>$('#sourceFile').click();$('#fTema').oninput=updateGeneratedHeader;$('#fFecha').oninput=updateGeneratedHeader; $('#sourceFile').onchange=()=>$('#fileName').textContent=$('#sourceFile').files[0]?.name||'Sin archivo seleccionado';
+    $('#pickFileBtn').onclick=()=>$('#sourceFile').click();
+    $('#fTema').oninput=updateGeneratedHeader;
+    $('#fFecha').oninput=updateGeneratedHeader;
+
+    $('#sourceFile').onchange=()=>{
+      clearLocalPasteState();
+      $('#fileName').textContent=$('#sourceFile').files[0]?.name||'Sin archivo seleccionado';
+    };
+
+    const localPasteZone=$('#localPasteZone');
+    if(localPasteZone){
+      localPasteZone.addEventListener('click',()=>localPasteZone.focus());
+
+      localPasteZone.addEventListener('keydown',e=>{
+        const key=String(e.key||'').toLowerCase();
+        const isPaste=(e.ctrlKey||e.metaKey)&&key==='v';
+        const allowed=['tab','shift','control','meta'].includes(key);
+        if(!isPaste&&!allowed) e.preventDefault();
+      });
+
+      localPasteZone.addEventListener('paste',e=>{
+        e.preventDefault();
+
+        const items=[...(e.clipboardData?.items||[])];
+        const imageItem=items.find(item=>item.kind==='file'&&/^image\//i.test(item.type||''));
+
+        if(!imageItem){
+          toast('El portapapeles no contiene una imagen. Realice el recorte y vuelva a presionar Ctrl+V.');
+          return;
+        }
+
+        const blob=imageItem.getAsFile();
+        if(!blob) return;
+
+        const ext=(String(blob.type||'image/png').split('/')[1]||'png')
+          .replace(/[^a-z0-9]+/gi,'')||'png';
+
+        const pastedFile=new File(
+          [blob],
+          'captura_agenda_local_'+Date.now()+'.'+ext,
+          {type:blob.type||'image/png'}
+        );
+
+        const input=$('#sourceFile');
+        if(input) input.value='';
+
+        setLocalPastedFile(pastedFile);
+        toast('Captura pegada correctamente.');
+      });
+    }
     $('#processBtn').onclick=processInput; $('#cancelGenerated').onclick=()=>$('#generatedForm').classList.add('hidden'); $('#saveNewEvent').onclick=saveNewEvent;
     $('#directorySearch').oninput=renderDirectory; $('#directoryFilter').onchange=renderDirectory; $('#generalSearch').oninput=()=>{generalPage=1;renderGeneral();};
 
@@ -950,7 +1027,7 @@ function alertRow(x){
     if (processingInput) return;
     const registrador=$('#registrador').value==='Otro'?$('#registradorOtro').value.trim():$('#registrador').value; const fuente=$('#fuente').value==='Otro'?$('#fuenteOtro').value.trim():$('#fuente').value; const tipo=$('#tipo').value==='Otro'?$('#tipoOtro').value.trim():$('#tipo').value;
     if(!registrador||!fuente||!tipo){toast('Complete ¿Quién eres?, Fuente y Tipo de evento.');return}
-    const file=$('#sourceFile').files[0]; const rawText=$('#rawText').value.trim(); if(!file&&!rawText){toast('Cargue una captura/PDF o pegue el texto.');return} if(file&&file.size>MAX_UPLOAD_MB*1024*1024){toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);return}
+    const file=pastedLocalSourceFile||$('#sourceFile').files[0]; const rawText=$('#rawText').value.trim(); if(!file&&!rawText){toast('Pegue una captura, seleccione una captura/PDF o pegue el texto.');return} if(file&&file.size>MAX_UPLOAD_MB*1024*1024){toast(`El archivo supera ${MAX_UPLOAD_MB} MB.`);return}
     const btn = $('#processBtn');
 const textoOriginal = btn.textContent;
 
@@ -1133,7 +1210,7 @@ toast('Evento guardado en el Directorio.');
       btn.textContent=textoOriginal;
     }
   }
-  function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fLinkReunion','#fLinkUbicacion','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
+  function resetRegister(){['#registrador','#fuente','#tipo'].forEach(id=>$(id).value='');['#registradorOtro','#fuenteOtro','#tipoOtro','#rawText','#fTipo','#fTema','#fFecha','#fHora','#fLugar','#fConvocados','#fLinkReunion','#fLinkUbicacion','#fObservaciones'].forEach(id=>$(id).value='');$('#sourceFile').value='';clearLocalPasteState();$('#fileName').textContent='Sin archivo seleccionado';$('#generatedForm').classList.add('hidden');$$('#newEventPeople input').forEach(x=>x.checked=false)}
 
 function buildEvidenceFileName(eventDate,legend,originalName){
   const date=String(eventDate||todayISO()).trim()||todayISO();
