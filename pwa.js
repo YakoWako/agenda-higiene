@@ -1,9 +1,8 @@
 (() => {
   if (!('serviceWorker' in navigator)) return;
 
-  const BASE = '/agenda-higiene/';
-  let reloading = false;
-  let activeRegistration = null;
+  let registrationRef = null;
+  let updateAccepted = false;
 
   const notice = () => document.getElementById('pwaUpdateNotice');
   const updateBtn = () => document.getElementById('pwaUpdateBtn');
@@ -14,14 +13,16 @@
   }
 
   function showNotice(registration) {
-    activeRegistration = registration;
+    registrationRef = registration;
     notice()?.classList.add('show');
   }
 
-  function bindUpdateControls() {
+  window.addEventListener('load', async () => {
     updateBtn()?.addEventListener('click', () => {
-      const waiting = activeRegistration?.waiting;
+      const waiting = registrationRef?.waiting;
+
       if (waiting) {
+        updateAccepted = true;
         waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
         window.location.reload();
@@ -29,30 +30,25 @@
     });
 
     dismissBtn()?.addEventListener('click', hideNotice);
-  }
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
-
-    // En una actualización normal refrescamos una sola vez.
-    // Durante el primer registro no forzamos navegación adicional.
-    if (navigator.serviceWorker.controller) {
-      reloading = true;
-      window.location.reload();
-    }
-  });
-
-  window.addEventListener('load', async () => {
-    bindUpdateControls();
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // Solo recargar cuando el usuario aceptó expresamente una actualización.
+      // Nunca recargar durante el lanzamiento inicial de la app instalada.
+      if (updateAccepted) {
+        window.location.reload();
+      }
+    });
 
     try {
       const registration = await navigator.serviceWorker.register(
-        BASE + 'service-worker.js',
+        './service-worker.js',
         {
-          scope: BASE,
+          scope: './',
           updateViaCache: 'none'
         }
       );
+
+      registrationRef = registration;
 
       if (registration.waiting && navigator.serviceWorker.controller) {
         showNotice(registration);
@@ -73,11 +69,11 @@
         });
       });
 
+      // Comprobar actualizaciones al abrir y periódicamente.
+      registration.update().catch(() => {});
       setInterval(() => {
         registration.update().catch(() => {});
       }, 60 * 60 * 1000);
-
-      registration.update().catch(() => {});
     } catch (error) {
       console.warn('PWA: no se pudo registrar el service worker.', error);
     }
