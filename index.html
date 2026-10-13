@@ -483,6 +483,40 @@
       touch-action:pan-y;
     }
   }
+
+  /* Pegado directo de capturas en Agenda Local */
+  .local-paste-field{
+    min-height:70px;
+    width:100%;
+    border:1.5px solid #b8cdbd;
+    border-radius:11px;
+    background:#fff;
+    padding:12px;
+    text-align:left;
+    outline:none;
+    cursor:text;
+    color:var(--text);
+    caret-color:var(--navy);
+    transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+  }
+  .local-paste-field:empty::before{
+    content:'Haga clic aquí y presione Ctrl + V';
+    color:#8a9b8f;
+    pointer-events:none;
+  }
+  .local-paste-field:focus{
+    border-color:#68b984;
+    box-shadow:0 0 0 3px #e4f4e9;
+  }
+  .local-paste-field.has-image{
+    border-color:#38a561;
+    background:#f0faf3;
+  }
+  .local-paste-field.has-image:empty::before{
+    content:'✓ Captura pegada correctamente';
+    color:#23864b;
+    font-weight:800;
+  }
 </style>
 </head>
 <body>
@@ -571,7 +605,28 @@
       <div class="card"><div class="card-title"><span class="num">A</span>¿Quién eres tú?</div><div class="hint">Persona que registra la información.</div><div class="field"><label>Registrador</label><select id="registrador"></select></div><div class="field hidden" id="registradorOtroWrap"><label>Otro</label><input id="registradorOtro" placeholder="Escriba el nombre"></div></div>
       <div class="card"><div class="card-title"><span class="num">B</span>Fuente</div><div class="field"><label>Origen de la convocatoria</label><select id="fuente"><option value="">Seleccione...</option><option>Correo</option><option>Gestor</option><option>WhatsApp</option><option>Verbal</option><option>Otro</option></select></div><div class="field hidden" id="fuenteOtroWrap"><label>Otra fuente</label><input id="fuenteOtro" placeholder="Especifique"></div></div>
       <div class="card"><div class="card-title"><span class="num">C</span>Tipo de evento</div><div class="field"><label>Evento</label><select id="tipo"><option value="">Seleccione...</option><option>Agenda Alcaldía</option><option>Reunión</option><option>Avanzada</option><option>Mesa de trabajo</option><option>Capacitación</option><option>Socialización</option><option>PAP</option><option>Otro</option></select></div><div class="field hidden" id="tipoOtroWrap"><label>Otro tipo</label><input id="tipoOtro" placeholder="Especifique"></div></div>
-      <div class="card"><div class="card-title"><span class="num">D</span>Carga de datos</div><div class="upload-zone"><div class="upload-actions"><button class="secondary" id="pickFileBtn">📷 Captura / PDF</button><input id="sourceFile" type="file" accept="image/*,.pdf,application/pdf"></div><div class="hint" id="fileName" style="margin-top:8px">Sin archivo seleccionado</div></div><div class="field"><label>O pegue el texto</label><textarea id="rawText" placeholder="Pegue aquí la convocatoria si llegó como texto..."></textarea></div><button class="primary wide" id="processBtn">Procesar y crear ficha</button><div id="processing" class="processing hidden"><span class="spinner"></span>Procesando OCR / IA...</div></div>
+      <div class="card"><div class="card-title"><span class="num">D</span>Carga de datos</div>
+        <div class="upload-zone">
+          <div style="font-weight:900;color:var(--navy);margin-bottom:7px">📋 Pegar captura</div>
+          <div class="hint" style="margin-bottom:8px">Haga clic dentro del campo y presione Ctrl+V después de usar Recortes de Windows.</div>
+
+          <div
+            id="localPasteZone"
+            class="local-paste-field"
+            contenteditable="true"
+            role="textbox"
+            aria-label="Pegar captura desde el portapapeles"
+            spellcheck="false"
+          ></div>
+
+          <div class="hint" style="margin:8px 0">O seleccione una imagen o PDF guardado en su equipo.</div>
+          <div class="upload-actions">
+            <button class="secondary" id="pickFileBtn" type="button">📷 Captura / PDF</button>
+            <input id="sourceFile" type="file" accept="image/*,.pdf,application/pdf">
+          </div>
+          <div class="hint" id="fileName" style="margin-top:8px">Sin archivo seleccionado</div>
+        </div>
+        <div class="field"><label>O pegue el texto</label><textarea id="rawText" placeholder="Pegue aquí la convocatoria si llegó como texto..."></textarea></div><button class="primary wide" id="processBtn">Procesar y crear ficha</button><div id="processing" class="processing hidden"><span class="spinner"></span>Procesando OCR / IA...</div></div>
     </div>
 
     <div id="generatedForm" class="generated hidden">
@@ -841,7 +896,7 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 <script src="tasa.js?v=8"></script>
 <script src="alcaldia.js?v=12"></script>
 <script>
