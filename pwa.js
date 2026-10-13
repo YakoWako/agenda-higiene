@@ -1,6 +1,7 @@
 (() => {
   if (!('serviceWorker' in navigator)) return;
 
+  const BASE = '/agenda-higiene/';
   let reloading = false;
   let activeRegistration = null;
 
@@ -20,6 +21,7 @@
   function bindUpdateControls() {
     updateBtn()?.addEventListener('click', () => {
       const waiting = activeRegistration?.waiting;
+
       if (waiting) {
         waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
@@ -41,9 +43,9 @@
 
     try {
       const registration = await navigator.serviceWorker.register(
-        './service-worker.js',
+        BASE + 'service-worker.js',
         {
-          scope: './',
+          scope: BASE,
           updateViaCache: 'none'
         }
       );
@@ -66,7 +68,6 @@
         });
       });
 
-      // Comprueba nuevas versiones sin obligar a reinstalar la PWA.
       setInterval(() => {
         registration.update().catch(() => {});
       }, 60 * 60 * 1000);
