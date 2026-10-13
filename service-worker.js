@@ -1,21 +1,22 @@
 const CACHE_PREFIX = 'agenda-higiene-static-';
-const CACHE_NAME = CACHE_PREFIX + '2026-10-12-v1';
+const CACHE_NAME = CACHE_PREFIX + '2026-10-12-v2';
+const BASE = '/agenda-higiene/';
 
 const APP_SHELL = [
-  './',
-  './index.html',
-  './app.js',
-  './api.js',
-  './config.js',
-  './tasa.js',
-  './alcaldia.js',
-  './roles.js',
-  './manifest.webmanifest',
-  './icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/favicon-32.png'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'app.js',
+  BASE + 'api.js',
+  BASE + 'config.js',
+  BASE + 'tasa.js',
+  BASE + 'alcaldia.js',
+  BASE + 'roles.js',
+  BASE + 'manifest.webmanifest',
+  BASE + 'icon.svg',
+  BASE + 'icons/icon-192.png',
+  BASE + 'icons/icon-512.png',
+  BASE + 'icons/apple-touch-icon.png',
+  BASE + 'icons/favicon-32.png'
 ];
 
 self.addEventListener('install', event => {
@@ -31,15 +32,23 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys
-          .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
-          .map(key => caches.delete(key))
-      ))
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+
+    await Promise.all(
+      keys
+        .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+        .map(key => caches.delete(key))
+    );
+
+    if ('navigationPreload' in self.registration) {
+      try {
+        await self.registration.navigationPreload.enable();
+      } catch (_) {}
+    }
+
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('message', event => {
@@ -48,11 +57,47 @@ self.addEventListener('message', event => {
   }
 });
 
-async function networkFirst(request) {
+function fetchWithTimeout(request, ms = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+
+  return fetch(request, {
+    cache: 'no-store',
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeout));
+}
+
+async function navigationResponse(event) {
   const cache = await caches.open(CACHE_NAME);
 
   try {
-    const response = await fetch(request, { cache: 'no-store' });
+    const preload = await event.preloadResponse;
+    if (preload) {
+      cache.put(BASE, preload.clone()).catch(() => {});
+      return preload;
+    }
+
+    const response = await fetchWithTimeout(event.request, 8000);
+
+    if (response && response.ok && response.type === 'basic') {
+      cache.put(BASE, response.clone()).catch(() => {});
+    }
+
+    return response;
+  } catch (_) {
+    return (
+      await cache.match(BASE) ||
+      await cache.match(BASE + 'index.html') ||
+      Response.error()
+    );
+  }
+}
+
+async function staticResponse(request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    const response = await fetchWithTimeout(request, 8000);
 
     if (response && response.ok && response.type === 'basic') {
       cache.put(request, response.clone()).catch(() => {});
@@ -60,15 +105,10 @@ async function networkFirst(request) {
 
     return response;
   } catch (_) {
-    const cached = await cache.match(request, { ignoreSearch: true });
-    if (cached) return cached;
-
-    if (request.mode === 'navigate') {
-      const shell = await cache.match('./index.html');
-      if (shell) return shell;
-    }
-
-    throw _;
+    return (
+      await cache.match(request, { ignoreSearch: true }) ||
+      Response.error()
+    );
   }
 }
 
@@ -79,14 +119,18 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
-  // No intervenir en Google Apps Script, Google Drive ni otros servicios externos.
+  // Nunca interceptar Google Apps Script, Drive ni ningún servicio externo.
   if (url.origin !== self.location.origin) return;
 
-  // No cachear rutas que puedan corresponder a recursos internos o de backend.
+  // Mantener fuera del caché cualquier ruta de backend.
   if (url.pathname.includes('/backend/')) return;
 
+  if (request.mode === 'navigate') {
+    event.respondWith(navigationResponse(event));
+    return;
+  }
+
   const cacheableDestination = [
-    'document',
     'script',
     'style',
     'image',
@@ -94,7 +138,7 @@ self.addEventListener('fetch', event => {
     'manifest'
   ].includes(request.destination);
 
-  if (request.mode === 'navigate' || cacheableDestination) {
-    event.respondWith(networkFirst(request));
+  if (cacheableDestination) {
+    event.respondWith(staticResponse(request));
   }
 });
