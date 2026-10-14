@@ -1257,6 +1257,75 @@
       margin-top:3px;
     }
   }
+
+  /* ===== Icono de funcionario: lleno si está asignado, contorno si no ===== */
+  .person-glyph{
+    width:14px;
+    height:16px;
+    display:inline-block;
+    flex:0 0 auto;
+    vertical-align:-2px;
+    overflow:visible;
+  }
+
+  .person-glyph circle,
+  .person-glyph path{
+    stroke:#2f80ed;
+    stroke-width:1.55;
+    vector-effect:non-scaling-stroke;
+  }
+
+  .person-glyph.is-assigned circle,
+  .person-glyph.is-assigned path{
+    fill:#2f80ed;
+  }
+
+  .person-glyph.is-unassigned circle,
+  .person-glyph.is-unassigned path{
+    fill:transparent;
+  }
+
+  .event-assigned,
+  .alcaldia-assigned,
+  .assigned-detail-row,
+  .combined-assigned{
+    display:flex;
+    align-items:center;
+    gap:4px;
+  }
+
+  .assigned-detail-row{
+    flex-wrap:wrap;
+  }
+
+  /* Los eventos clicables de Agenda del día conservan la tarjeta actual,
+     pero comunican discretamente que pueden abrir su ficha. */
+  .combined-clickable{
+    cursor:pointer;
+    transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;
+  }
+
+  .combined-clickable:hover{
+    transform:translateY(-1px);
+    border-color:#9dbfb0;
+    box-shadow:0 7px 18px rgba(31,85,52,.10);
+  }
+
+  .combined-clickable:focus-visible{
+    outline:3px solid rgba(47,128,237,.35);
+    outline-offset:2px;
+  }
+
+  @media(max-width:560px){
+    .person-glyph{
+      width:13px;
+      height:15px;
+    }
+
+    .combined-clickable:active{
+      transform:scale(.992);
+    }
+  }
 </style>
 </head>
 <body>
@@ -1666,9 +1735,9 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=25"></script>
-<script src="tasa.js?v=9"></script>
-<script src="alcaldia.js?v=16"></script>
+<script src="app.js?v=26"></script>
+<script src="tasa.js?v=10"></script>
+<script src="alcaldia.js?v=17"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
