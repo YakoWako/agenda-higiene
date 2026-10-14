@@ -897,6 +897,36 @@
       display:none!important;
     }
   }
+
+  /* Funcionario asignado en cartelera de Alcaldía */
+  .alcaldia-assigned{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:3px;
+    margin-top:3px;
+    color:#5f7566;
+    font-size:11.5px;
+    line-height:1.25;
+  }
+
+  .alcaldia-assigned span{
+    font-weight:700;
+  }
+
+  .alcaldia-assigned strong{
+    color:var(--navy);
+    font-size:11.5px!important;
+    line-height:1.25!important;
+    font-weight:800;
+  }
+
+  @media(max-width:560px){
+    .alcaldia-assigned,
+    .alcaldia-assigned strong{
+      font-size:10.5px!important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1285,7 +1315,7 @@
 <script src="api.js?v=10"></script>
 <script src="app.js?v=22"></script>
 <script src="tasa.js?v=8"></script>
-<script src="alcaldia.js?v=12"></script>
+<script src="alcaldia.js?v=13"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
