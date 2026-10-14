@@ -1017,7 +1017,11 @@
         ...e,
         ubicacionUrl:normalizeLocationField(e?.ubicacionUrl||'')
       }));
-      assignables=Array.isArray(data?.assignables)?data.assignables:[];
+      assignables=[...new Set([
+        ...(Array.isArray(data?.assignables)?data.assignables:[]),
+        'Evelyn Marín',
+        'Willy Sánchez'
+      ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
       renderHistory();
