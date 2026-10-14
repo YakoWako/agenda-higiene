@@ -239,7 +239,8 @@
               ${locationLinksHtml(e)}
             </div>
             <div class="alcaldia-assigned">
-              👤 <span>Funcionario asignado:</span>
+              ${window.AgendaUI?.personIconHtml?.(!!String(e.responsable||'').trim())||''}
+              <span>Funcionario asignado:</span>
               <strong class="${String(e.responsable||'').trim()?'assigned-value':'assigned-empty'}">${esc(e.responsable||'Sin asignar')}</strong>
             </div>
             ${e.observaciones?`<div class="muted" style="margin-top:8px">${esc(e.observaciones)}</div>`:''}
