@@ -38,9 +38,13 @@
   function formatDailyDate(iso){
     const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if(!m)return '';
+
     const d=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),12));
-    const text=new Intl.DateTimeFormat('es-EC',{timeZone:'UTC',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d);
-    return text.charAt(0).toUpperCase()+text.slice(1);
+    const weekday=new Intl.DateTimeFormat('es-EC',{timeZone:'UTC',weekday:'long'}).format(d);
+    const month=new Intl.DateTimeFormat('es-EC',{timeZone:'UTC',month:'long'}).format(d);
+    const cap=text=>String(text||'').charAt(0).toUpperCase()+String(text||'').slice(1).toLowerCase();
+
+    return cap(weekday)+', '+Number(m[3])+' de '+cap(month)+' de '+m[1];
   }
   function dailyRelativeLabel(iso){
     const today=todayISO();
@@ -1074,6 +1078,15 @@ function eventCard(e,readOnly=false){
           <span>🕐 ${esc(e.hora||'Sin hora')}</span>
           ${e.lugar ? `<span>📍 ${esc(e.lugar)}</span>` : ''}
         </div>
+
+        <div class="event-assigned">
+          👤 Funcionario asignado:
+          <strong class="${(e.asignados||[]).filter(Boolean).length?'assigned-value':'assigned-empty'}">
+            ${(e.asignados||[]).filter(Boolean).length
+              ? esc((e.asignados||[]).filter(Boolean).join(', '))
+              : 'Sin asignar'}
+          </strong>
+        </div>
       </div>
 
       <div class="event-chips">
@@ -1727,13 +1740,13 @@ function eventInfoView(e){
     ? asignados.map(nombre=>{
         const hora=formatActionTime(asignacionesMeta[nombre]);
 
-        return '<div>'+esc(nombre)+
+        return '<div><span class="assigned-value">'+esc(nombre)+'</span>'+
           (hora
             ? ' <span style="color:var(--muted);font-size:12px;font-weight:500">('+esc(hora)+')</span>'
             : '')+
         '</div>';
       }).join('')
-    : '<span class="muted">Sin asignar</span>';
+    : '<span class="assigned-empty">Sin asignar</span>';
 
   const attendancePhotos=evidencias.filter(v=>{
     const meta=getEvidenceMeta(v);
