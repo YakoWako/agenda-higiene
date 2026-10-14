@@ -352,6 +352,169 @@ function eventStatePill(e){
   // Sincronización con la base maestra en segundo plano.
   refresh();
 }
+  function isPastDateTime(dateValue,timeValue){
+    const date=String(dateValue||'').slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+
+    const today=todayISO();
+    if(date<today) return true;
+    if(date>today) return false;
+
+    const m=String(timeValue||'').match(/(\d{1,2}):(\d{2})/);
+    if(!m) return false;
+
+    const eventMinutes=Number(m[1])*60+Number(m[2]);
+    const now=new Date();
+    const nowMinutes=now.getHours()*60+now.getMinutes();
+    return eventMinutes<nowMinutes;
+  }
+
+  function isPastLocalEvent(e){
+    return isPastDateTime(e?.fecha,e?.hora);
+  }
+
+  const highlightTimers=new WeakMap();
+
+  function highlightSaved(target){
+    const el=typeof target==='string'?document.querySelector(target):target;
+    if(!el) return;
+
+    const previous=highlightTimers.get(el);
+    if(previous) clearTimeout(previous);
+
+    el.classList.remove('just-saved');
+    void el.offsetWidth;
+    el.classList.add('just-saved');
+
+    const rect=el.getBoundingClientRect();
+    if(rect.top<80 || rect.bottom>window.innerHeight-24){
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+
+    const timer=setTimeout(()=>{
+      el.classList.remove('just-saved');
+      highlightTimers.delete(el);
+    },3000);
+
+    highlightTimers.set(el,timer);
+  }
+
+  function combinedTimeRange(start,end){
+    const s=String(start||'').slice(0,5);
+    const e=String(end||'').slice(0,5);
+    if(s&&e) return s+' – '+e;
+    return s||e||'Sin hora';
+  }
+
+  function getCombinedAgendaItems(date){
+    const local=state.events
+      .filter(e=>String(e.fecha||'')===date)
+      .map(e=>({
+        source:'local',
+        sourceLabel:'AGENDA LOCAL',
+        title:e.tema||e.tipo||'Evento',
+        start:e.hora||'',
+        time:e.hora||'Sin hora',
+        place:e.lugar||'',
+        detail:e.tipo||'',
+        assigned:Array.isArray(e.asignados)&&e.asignados.length?e.asignados.join(', '):'Sin asignar',
+        past:isPastDateTime(e.fecha,e.hora)
+      }));
+
+    const tasaEvents=window.AgendaModules?.tasa?.getEvents?.()||[];
+    const publicos=tasaEvents
+      .filter(e=>String(e.fechaEvento||'')===date)
+      .map(e=>({
+        source:'tasa',
+        sourceLabel:'EVENTO PÚBLICO',
+        title:e.nombreEvento||'Evento público',
+        start:e.horaInicio||'',
+        time:combinedTimeRange(e.horaInicio,e.horaFin),
+        place:e.lugar||'',
+        detail:e.organizador||'',
+        assigned:'',
+        past:isPastDateTime(e.fechaEvento,e.horaFin||e.horaInicio)
+      }));
+
+    const alcaldiaEvents=window.AgendaModules?.alcaldia?.getEvents?.()||[];
+    const alcaldia=alcaldiaEvents
+      .filter(e=>String(e.fecha||'')===date)
+      .map(e=>({
+        source:'alcaldia',
+        sourceLabel:'AGENDA ALCALDÍA',
+        title:e.nombreEvento||'Actividad de Alcaldía',
+        start:e.horaInicio||'',
+        time:combinedTimeRange(e.horaInicio,e.horaFin),
+        place:e.lugar||'',
+        detail:e.observaciones||'',
+        assigned:e.responsable||'Sin asignar',
+        past:isPastDateTime(e.fecha,e.horaFin||e.horaInicio)
+      }));
+
+    return [...local,...publicos,...alcaldia].sort((a,b)=>{
+      const av=a.start||'99:99';
+      const bv=b.start||'99:99';
+      if(av!==bv) return av.localeCompare(bv);
+      return a.sourceLabel.localeCompare(b.sourceLabel);
+    });
+  }
+
+  function renderCombinedAgenda(){
+    const date=dailySelectedDate||todayISO();
+    const list=$('#combinedAgendaList');
+    const title=$('#combinedAgendaTitle');
+    if(!list||!title) return;
+
+    title.textContent='Agenda del día · '+(formatDailyDate(date)||fmtDate(date));
+
+    const rows=getCombinedAgendaItems(date);
+
+    list.innerHTML=rows.length?rows.map(item=>`
+      <article class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}">
+        <div class="combined-time">${esc(item.time)}</div>
+        <div class="combined-body">
+          <span class="combined-source">${esc(item.sourceLabel)}</span>
+          <strong>${esc(item.title)}</strong>
+          <div class="combined-meta">
+            ${item.place?`<span>📍 ${esc(item.place)}</span>`:''}
+            ${item.assigned?`<span>👤 ${esc(item.assigned)}</span>`:''}
+          </div>
+          ${item.detail?`<div class="combined-detail">${esc(item.detail)}</div>`:''}
+        </div>
+      </article>
+    `).join(''):'<div class="empty">No hay eventos registrados para esta fecha.</div>';
+  }
+
+  async function openCombinedAgenda(){
+    const modal=$('#combinedAgendaModal');
+    const list=$('#combinedAgendaList');
+    if(!modal||!list) return;
+
+    modal.classList.add('open');
+    renderCombinedAgenda();
+
+    const loaders=[
+      window.AgendaModules?.tasa?.ensureLoaded?.(),
+      window.AgendaModules?.alcaldia?.ensureLoaded?.()
+    ].filter(Boolean);
+
+    if(loaders.length){
+      await Promise.allSettled(loaders);
+      renderCombinedAgenda();
+    }
+  }
+
+  function closeCombinedAgenda(){
+    $('#combinedAgendaModal')?.classList.remove('open');
+  }
+
+  window.AgendaUI={
+    highlightSaved,
+    toast,
+    isPastDateTime,
+    renderCombinedAgenda
+  };
+
   function normalizeRole(value){
     const role=String(value||'').trim().toUpperCase();
     return ['ADMIN','EDITOR','LECTURA'].includes(role)?role:'LECTURA';
@@ -671,6 +834,9 @@ function eventStatePill(e){
       dailySelectedDate=todayISO();
       renderDaily();
     };
+    $('#combinedAgendaBtn').onclick=openCombinedAgenda;
+    $('#combinedAgendaClose').onclick=closeCombinedAgenda;
+    $('#combinedAgendaModal').onclick=e=>{if(e.target===$('#combinedAgendaModal'))closeCombinedAgenda();};
     $('#dailyDatePicker').onchange=()=>{
       if($('#dailyDatePicker').value){
         dailySelectedDate=$('#dailyDatePicker').value;
@@ -712,11 +878,17 @@ function eventStatePill(e){
 
       const ping=await window.AgendaApi.call('ping');
       state.role=normalizeRole(ping?.role);
+      applyRoleUI();
 
-      await refresh();
       $('#accessKey').value='';
       closeSettings();
-      toast('Conexión correcta · Perfil '+state.role);
+      dailySelectedDate=todayISO();
+      switchModule('local');
+      showView('daily');
+      toast('Clave guardada · Perfil '+state.role);
+
+      // La sincronización completa continúa en segundo plano.
+      refresh();
 
     }catch(e){
       console.error(e);
@@ -889,7 +1061,7 @@ function eventStatePill(e){
 
 function eventCard(e,readOnly=false){
   return `
-    <article class="event-card" data-id="${esc(e.id)}">
+    <article class="event-card${isPastLocalEvent(e)?' event-past':''}" data-id="${esc(e.id)}">
       <div class="event-main">
         <strong>${esc(e.tema||e.tipo||'Evento sin tema')}</strong>
 
@@ -1595,6 +1767,7 @@ function eventInfoView(e){
       '<div class="card-title">📋 Información del evento</div>'+
       '<div class="grid grid-2">'+
         infoItem('Tipo',e.tipo)+
+        infoItem('Fuente de ingreso',e.fuente||'No registrada')+
         infoItem('Fecha',fmtDate(e.fecha))+
         infoItem('Hora',e.hora||'Sin hora')+
         infoItem('Lugar',e.lugar)+
@@ -1855,6 +2028,7 @@ function openEvent(id){
           <div class="card-title">🗂️ Ficha del evento</div>
           <div class="grid grid-2">
             <div class="field"><label>Tipo</label><input id="editTipo" value="${esc(e.tipo||'')}"></div>
+            <div class="field"><label>Fuente de ingreso</label><input value="${esc(e.fuente||'No registrada')}" readonly></div>
             <div class="field"><label>Tema</label><input id="editTema" value="${esc(e.tema||'')}"></div>
             <div class="field"><label>Fecha</label><input id="editFecha" type="date" value="${esc(e.fecha||'')}"></div>
             <div class="field"><label>Hora</label><input id="editHora" type="time" value="${esc(e.hora||'')}"></div>
@@ -2476,7 +2650,22 @@ async function saveEventChanges(targetState='',actionBtn=null){
 const updated = updateEventInState(saved || e);
 renderAll();
 
-openEvent(updated.id);
+if(!targetState){
+  dailySelectedDate=updated.fecha||todayISO();
+  closeDrawer();
+  switchModule('local');
+  showView('daily');
+  renderDaily();
+
+  setTimeout(()=>{
+    const target=[...document.querySelectorAll('#dailyList .event-card')]
+      .find(card=>String(card.dataset.id)===String(updated.id));
+    highlightSaved(target);
+  },60);
+}else{
+  openEvent(updated.id);
+}
+
 toast('Cambios guardados correctamente.');
 return true;
 
