@@ -57,8 +57,10 @@ function getAlcaldiaData() {
 }
 
 function getAlcaldiaAssignables_() {
+  var extras = ['Evelyn Marín', 'Willy Sánchez'];
+
   try {
-    return readObjects_('PERSONAL')
+    var base = readObjects_('PERSONAL')
       .filter(function(row){
         return (
           isTruthyAlcaldia_(row.activo) &&
@@ -69,8 +71,10 @@ function getAlcaldiaAssignables_() {
         return String(row.nombre || '').trim();
       })
       .filter(Boolean);
+
+    return Array.from(new Set(base.concat(extras)));
   } catch (_) {
-    return [];
+    return extras;
   }
 }
 
