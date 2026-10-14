@@ -1122,6 +1122,141 @@
       font-size:10.5px;
     }
   }
+
+  /* ===== Agenda del día como categoría global superior ===== */
+  .global-agenda-wrap{
+    margin:0 0 10px;
+  }
+
+  .global-agenda-btn{
+    width:100%;
+    min-height:40px;
+    border:1px solid #b8d4c1;
+    border-radius:13px;
+    background:#e8f4eb;
+    color:#1f6940;
+    padding:8px 14px;
+    font-size:13px;
+    line-height:1;
+    font-weight:900;
+    letter-spacing:.15px;
+    box-shadow:0 3px 10px rgba(31,85,52,.05);
+  }
+
+  .global-agenda-btn:hover{
+    background:#dff0e4;
+  }
+
+  /* La etiqueta Hoy / Mañana / Ayer deja de ocupar espacio. */
+  #dailyDateBadge{
+    display:none!important;
+  }
+
+  /* Asignación visible y consistente en Agenda Local / Alcaldía. */
+  .event-assigned{
+    margin-top:4px;
+    color:#687970;
+    font-size:11.5px;
+    line-height:1.3;
+  }
+
+  .assigned-value{
+    color:#2f80ed!important;
+    font-weight:850!important;
+  }
+
+  .assigned-empty{
+    color:#7b847f!important;
+    font-weight:700!important;
+  }
+
+  .alcaldia-assigned .assigned-value{
+    color:#2f80ed!important;
+  }
+
+  .alcaldia-assigned .assigned-empty{
+    color:#7b847f!important;
+  }
+
+  /* Compactación general del selector diario */
+  .daily-date-nav{
+    padding-top:10px!important;
+    padding-bottom:10px!important;
+  }
+
+  .daily-date-center strong{
+    font-size:18px!important;
+    line-height:1.15!important;
+  }
+
+  @media(max-width:560px){
+    .global-agenda-wrap{
+      margin:0 0 7px;
+    }
+
+    .global-agenda-btn{
+      min-height:36px;
+      padding:7px 10px;
+      border-radius:11px;
+      font-size:12px;
+    }
+
+    #moduleNav{
+      margin-bottom:2px!important;
+    }
+
+    .daily-date-nav{
+      padding:7px 8px!important;
+      gap:6px!important;
+      margin-top:6px!important;
+      border-radius:15px!important;
+    }
+
+    .daily-date-center strong{
+      font-size:14px!important;
+      line-height:1.15!important;
+      white-space:nowrap;
+    }
+
+    .day-arrow{
+      width:36px!important;
+      min-width:36px!important;
+      height:36px!important;
+      min-height:36px!important;
+      padding:0!important;
+      font-size:20px!important;
+    }
+
+    .daily-date-actions{
+      margin-top:5px!important;
+      gap:6px!important;
+      grid-column:1 / -1;
+    }
+
+    .daily-date-actions .secondary,
+    .daily-picker-action{
+      min-height:34px!important;
+      padding:6px 10px!important;
+      font-size:12px!important;
+      border-radius:10px!important;
+    }
+
+    .module-description{
+      margin-top:4px!important;
+      margin-bottom:5px!important;
+      font-size:11.5px!important;
+      line-height:1.25!important;
+    }
+
+    .today-grid{
+      margin-top:7px!important;
+    }
+
+    .event-assigned{
+      font-size:10.5px;
+      margin-top:3px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1137,6 +1272,12 @@
   </div>
 </header>
 <main class="shell">
+  <div class="global-agenda-wrap">
+    <button class="global-agenda-btn" id="combinedAgendaBtn" type="button" title="Ver todos los eventos del día">
+      🧭 Agenda del día
+    </button>
+  </div>
+
   <nav class="module-nav" id="moduleNav" aria-label="Categorías principales">
     <button class="active" data-module="local">
       <span class="module-label-desktop">AGENDA LOCAL</span>
@@ -1178,7 +1319,6 @@
 
       <div class="daily-date-actions">
         <button class="secondary" id="dailyTodayBtn" type="button">Hoy</button>
-        <button class="secondary combined-agenda-btn" id="combinedAgendaBtn" type="button" title="Ver todos los eventos del día">🧭 Agenda del día</button>
         <label class="daily-picker-wrap daily-picker-action" title="Ir a una fecha">
           📅 Ir a fecha
           <input id="dailyDatePicker" type="date" aria-label="Ir a una fecha">
@@ -1497,7 +1637,6 @@
     <div class="modal-head">
       <div>
         <h2 id="combinedAgendaTitle" style="margin:0;color:var(--navy)">Agenda del día</h2>
-        <div class="muted">Agenda Local · Eventos Públicos · Agenda Alcaldía, ordenados por hora</div>
       </div>
       <button id="combinedAgendaClose" type="button">✕</button>
     </div>
@@ -1527,9 +1666,9 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 <script src="tasa.js?v=9"></script>
-<script src="alcaldia.js?v=15"></script>
+<script src="alcaldia.js?v=16"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
