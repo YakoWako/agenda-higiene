@@ -722,7 +722,8 @@
     ensureLoaded:async()=>{
       if(!loadedOnce) await loadEvents(true);
       return events;
-    }
+    },
+    openEvent:id=>openDetail(id)
   };
 
   function bind(){
