@@ -219,6 +219,9 @@
               ${e.lugar?`📍 ${esc(e.lugar)}`:''}
               ${locationLinksHtml(e)}
             </div>
+            <div class="alcaldia-assigned">
+              👤 <span>Funcionario asignado:</span> <strong>${esc(e.responsable||'Sin asignar')}</strong>
+            </div>
             ${e.observaciones?`<div class="muted" style="margin-top:8px">${esc(e.observaciones)}</div>`:''}
           </div>
 
