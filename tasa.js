@@ -691,10 +691,20 @@
       }else{
         await loadEvents(true);
       }
+
+      const savedId=String(normalized?.id||data.id||'');
       clearForm();
       currentMonth=new Date(Number(data.fechaEvento.slice(0,4)),Number(data.fechaEvento.slice(5,7))-1,1);
       showTasaView('calendar');
       renderCalendar();
+
+      setTimeout(()=>{
+        const target=[...q('#tasaCalendar').querySelectorAll('[data-tasa-id]')]
+          .find(el=>String(el.dataset.tasaId)===savedId);
+        window.AgendaUI?.highlightSaved?.(target);
+      },60);
+
+      window.AgendaUI?.toast?.('Evento guardado correctamente.');
     }catch(err){
       if(st) st.textContent='No se pudo guardar: '+String(err?.message||err).slice(0,220);
     }finally{
@@ -705,6 +715,15 @@
       }
     }
   }
+
+  window.AgendaModules=window.AgendaModules||{};
+  window.AgendaModules.tasa={
+    getEvents:()=>events.map(e=>({...e})),
+    ensureLoaded:async()=>{
+      if(!loadedOnce) await loadEvents(true);
+      return events;
+    }
+  };
 
   function bind(){
     qa('#tasaSubnav [data-tasa-view]').forEach(btn=>btn.onclick=()=>showTasaView(btn.dataset.tasaView));
