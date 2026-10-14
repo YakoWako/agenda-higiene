@@ -174,6 +174,25 @@
     return start||end||'Sin hora';
   }
 
+  function isPastAlcaldiaEvent(e){
+    if(window.AgendaUI?.isPastDateTime){
+      return window.AgendaUI.isPastDateTime(
+        e?.fecha,
+        e?.horaFin||e?.horaInicio
+      );
+    }
+
+    const date=String(e?.fecha||'').slice(0,10);
+    const today=isoToday();
+    if(date<today) return true;
+    if(date>today) return false;
+
+    const m=String(e?.horaFin||e?.horaInicio||'').match(/(\d{1,2}):(\d{2})/);
+    if(!m) return false;
+    const now=new Date();
+    return Number(m[1])*60+Number(m[2]) < now.getHours()*60+now.getMinutes();
+  }
+
   function responsibleOptions(selected=''){
     const values=[...new Set(assignables.filter(Boolean))];
     return '<option value="">Sin asignar</option>'+
@@ -206,7 +225,7 @@
       const suspended=estado==='SUSPENDIDO';
 
       return `
-        <article class="alcaldia-card${suspended?' suspended':''}" data-alcaldia-id="${esc(e.id)}">
+        <article class="alcaldia-card${suspended?' suspended':''}${isPastAlcaldiaEvent(e)?' event-past':''}" data-alcaldia-id="${esc(e.id)}">
           <div class="alcaldia-time">
             <strong>${esc(timeRange(e))}</strong>
             ${e.llegadaAlcaldesa?`<small>Llegada Alcaldesa: ${esc(normalizeTime(e.llegadaAlcaldesa))}</small>`:''}
@@ -935,14 +954,24 @@
       }
       if(st) st.textContent='Guardando cambios…';
 
-      const saved=await serverCall('updateAlcaldiaEvent',editingEventId,patch);
-      const e=events.find(x=>String(x.id)===String(editingEventId));
+      const savedId=String(editingEventId);
+      const saved=await serverCall('updateAlcaldiaEvent',savedId,patch);
+      const e=events.find(x=>String(x.id)===savedId);
       if(e) Object.assign(e,patch,(saved&&typeof saved==='object')?saved:{});
 
       selectedDate=patch.fecha;
       closeEditModal();
+      showView('daily');
       renderDaily();
       renderHistory();
+
+      setTimeout(()=>{
+        const target=[...q('#alcaldiaBoard').querySelectorAll('[data-alcaldia-id]')]
+          .find(el=>String(el.dataset.alcaldiaId)===savedId);
+        window.AgendaUI?.highlightSaved?.(target);
+      },60);
+
+      window.AgendaUI?.toast?.('Cambios guardados correctamente.');
     }catch(err){
       if(st) st.textContent='No se pudo guardar: '+String(err?.message||err).slice(0,220);
     }finally{
@@ -1032,6 +1061,15 @@
       console.warn('Agenda de Alcaldía backend pendiente:',err);
     }
   }
+
+  window.AgendaModules=window.AgendaModules||{};
+  window.AgendaModules.alcaldia={
+    getEvents:()=>events.map(e=>({...e})),
+    ensureLoaded:async()=>{
+      if(!loadedOnce) await loadData(true);
+      return events;
+    }
+  };
 
   function bind(){
     qa('#alcaldiaSubnav [data-alcaldia-view]').forEach(btn=>{
