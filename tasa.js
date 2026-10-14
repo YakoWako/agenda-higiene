@@ -74,6 +74,20 @@
     return txt.charAt(0).toUpperCase()+txt.slice(1);
   }
 
+  function isPastTasaEvent(e){
+    if(window.AgendaUI?.isPastDateTime){
+      return window.AgendaUI.isPastDateTime(e?.fechaEvento,e?.horaFin||e?.horaInicio);
+    }
+    const date=String(e?.fechaEvento||'').slice(0,10);
+    const today=isoToday();
+    if(date<today) return true;
+    if(date>today) return false;
+    const m=String(e?.horaFin||e?.horaInicio||'').match(/(\d{1,2}):(\d{2})/);
+    if(!m) return false;
+    const now=new Date();
+    return Number(m[1])*60+Number(m[2]) < now.getHours()*60+now.getMinutes();
+  }
+
   function isAdmin(){
     return String(tasaRole||'').toUpperCase()==='ADMIN';
   }
@@ -305,7 +319,7 @@
 
       html+=`<div class="tasa-day${outside?' outside':''}${iso===today?' today':''}" data-date="${iso}">
         <div class="tasa-day-num">${d.getDate()}</div>
-        ${dayEvents.map(e=>`<button class="tasa-event-chip" type="button" data-tasa-id="${esc(e.id)}">
+        ${dayEvents.map(e=>`<button class="tasa-event-chip${isPastTasaEvent(e)?' event-past':''}" type="button" data-tasa-id="${esc(e.id)}">
           ${esc(e.nombreEvento||'Evento')}
           <small>${esc(e.horaInicio?displayTime(e.horaInicio):'')}${e.horaFin?' – '+esc(displayTime(e.horaFin)):''}</small>
         </button>`).join('')}
@@ -334,7 +348,7 @@
     }
 
     el.innerHTML=rows.length ? rows.map(e=>`
-      <button type="button" class="tasa-record-card" data-tasa-id="${esc(e.id)}" style="width:100%;text-align:left">
+      <button type="button" class="tasa-record-card${isPastTasaEvent(e)?' event-past':''}" data-tasa-id="${esc(e.id)}" style="width:100%;text-align:left">
         <div>
           <strong>${esc(e.nombreEvento||'Evento sin nombre')}</strong>
           <div class="event-meta">
