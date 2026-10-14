@@ -377,6 +377,13 @@ function eventStatePill(e){
     return isPastDateTime(e?.fecha,e?.hora);
   }
 
+  function personIconHtml(assigned){
+    return `<svg class="person-glyph ${assigned?'is-assigned':'is-unassigned'}" viewBox="0 0 18 20" aria-hidden="true" focusable="false">
+      <circle cx="9" cy="5" r="3.2"></circle>
+      <path d="M3.2 18c.25-4.35 2.1-7 5.8-7s5.55 2.65 5.8 7H3.2z"></path>
+    </svg>`;
+  }
+
   const highlightTimers=new WeakMap();
 
   function highlightSaved(target){
@@ -414,6 +421,7 @@ function eventStatePill(e){
     const local=state.events
       .filter(e=>String(e.fecha||'')===date)
       .map(e=>({
+        id:e.id,
         source:'local',
         sourceLabel:'AGENDA LOCAL',
         title:e.tema||e.tipo||'Evento',
@@ -429,6 +437,7 @@ function eventStatePill(e){
     const publicos=tasaEvents
       .filter(e=>String(e.fechaEvento||'')===date)
       .map(e=>({
+        id:e.id,
         source:'tasa',
         sourceLabel:'EVENTO PÚBLICO',
         title:e.nombreEvento||'Evento público',
@@ -444,6 +453,7 @@ function eventStatePill(e){
     const alcaldia=alcaldiaEvents
       .filter(e=>String(e.fecha||'')===date)
       .map(e=>({
+        id:e.id,
         source:'alcaldia',
         sourceLabel:'AGENDA ALCALDÍA',
         title:e.nombreEvento||'Actividad de Alcaldía',
@@ -473,20 +483,54 @@ function eventStatePill(e){
 
     const rows=getCombinedAgendaItems(date);
 
-    list.innerHTML=rows.length?rows.map(item=>`
-      <article class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}">
-        <div class="combined-time">${esc(item.time)}</div>
-        <div class="combined-body">
-          <span class="combined-source">${esc(item.sourceLabel)}</span>
-          <strong>${esc(item.title)}</strong>
-          <div class="combined-meta">
-            ${item.place?`<span>📍 ${esc(item.place)}</span>`:''}
-            ${item.assigned?`<span>👤 ${esc(item.assigned)}</span>`:''}
+    list.innerHTML=rows.length?rows.map(item=>{
+      const clickable=item.source==='local'||item.source==='tasa';
+      const assignedText=String(item.assigned||'').trim();
+      const hasAssigned=!!assignedText && assignedText.toLowerCase()!=='sin asignar';
+
+      return `
+        <article
+          class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${clickable?' combined-clickable':''}"
+          ${clickable?`data-combined-source="${esc(item.source)}" data-combined-id="${esc(item.id)}" role="button" tabindex="0"`:''}
+        >
+          <div class="combined-time">${esc(item.time)}</div>
+          <div class="combined-body">
+            <span class="combined-source">${esc(item.sourceLabel)}</span>
+            <strong>${esc(item.title)}</strong>
+            <div class="combined-meta">
+              ${item.place?`<span>📍 ${esc(item.place)}</span>`:''}
+              ${assignedText?`<span class="combined-assigned">${personIconHtml(hasAssigned)}<strong class="${hasAssigned?'assigned-value':'assigned-empty'}">${esc(assignedText)}</strong></span>`:''}
+            </div>
+            ${item.detail?`<div class="combined-detail">${esc(item.detail)}</div>`:''}
           </div>
-          ${item.detail?`<div class="combined-detail">${esc(item.detail)}</div>`:''}
-        </div>
-      </article>
-    `).join(''):'<div class="empty">No hay eventos registrados para esta fecha.</div>';
+        </article>`;
+    }).join(''):'<div class="empty">No hay eventos registrados para esta fecha.</div>';
+
+    list.querySelectorAll('[data-combined-source][data-combined-id]').forEach(card=>{
+      const open=()=>{
+        const source=card.dataset.combinedSource;
+        const id=card.dataset.combinedId;
+
+        closeCombinedAgenda();
+
+        if(source==='local'){
+          openEventInfo(id);
+          return;
+        }
+
+        if(source==='tasa'){
+          window.AgendaModules?.tasa?.openEvent?.(id);
+        }
+      };
+
+      card.onclick=open;
+      card.onkeydown=e=>{
+        if(e.key==='Enter'||e.key===' '){
+          e.preventDefault();
+          open();
+        }
+      };
+    });
   }
 
   async function openCombinedAgenda(){
@@ -516,7 +560,8 @@ function eventStatePill(e){
     highlightSaved,
     toast,
     isPastDateTime,
-    renderCombinedAgenda
+    renderCombinedAgenda,
+    personIconHtml
   };
 
   function normalizeRole(value){
@@ -1080,7 +1125,8 @@ function eventCard(e,readOnly=false){
         </div>
 
         <div class="event-assigned">
-          👤 Funcionario asignado:
+          ${personIconHtml((e.asignados||[]).filter(Boolean).length>0)}
+          <span>Funcionario asignado:</span>
           <strong class="${(e.asignados||[]).filter(Boolean).length?'assigned-value':'assigned-empty'}">
             ${(e.asignados||[]).filter(Boolean).length
               ? esc((e.asignados||[]).filter(Boolean).join(', '))
@@ -1740,13 +1786,13 @@ function eventInfoView(e){
     ? asignados.map(nombre=>{
         const hora=formatActionTime(asignacionesMeta[nombre]);
 
-        return '<div><span class="assigned-value">'+esc(nombre)+'</span>'+
+        return '<div class="assigned-detail-row">'+personIconHtml(true)+'<span class="assigned-value">'+esc(nombre)+'</span>'+
           (hora
             ? ' <span style="color:var(--muted);font-size:12px;font-weight:500">('+esc(hora)+')</span>'
             : '')+
         '</div>';
       }).join('')
-    : '<span class="assigned-empty">Sin asignar</span>';
+    : '<span class="assigned-detail-row">'+personIconHtml(false)+'<span class="assigned-empty">Sin asignar</span></span>';
 
   const attendancePhotos=evidencias.filter(v=>{
     const meta=getEvidenceMeta(v);
