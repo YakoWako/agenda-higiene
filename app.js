@@ -3,6 +3,21 @@
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Castro','Jordy Zamora','Gabriel Torres'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
+
+  const STAFF_PHOTOS = Object.freeze({
+    'Carlos Pacheco':'./profiles/carlos-pacheco.jpg',
+    'Evelyn Marín':'./profiles/evelyn-marin.jpg',
+    'William Pruss':'./profiles/william-pruss.jpg',
+    'Gabriela Castro':'./profiles/gabriela-castro.jpg',
+    'Gabriel Torres':'./profiles/gabriel-torres.jpg',
+    'Roque Mendoza':'./profiles/roque-mendoza.jpg',
+    'Darwin Zambrano':'./profiles/darwin-zambrano.jpg'
+  });
+
+  function staffPhotoUrl(name){
+    return STAFF_PHOTOS[String(name||'').trim()]||'';
+  }
+
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
   let dailySelectedDate = '';
   let currentModule = 'local';
@@ -429,6 +444,7 @@ function eventStatePill(e){
         time:e.hora||'Sin hora',
         place:e.lugar||'',
         detail:e.tipo||'',
+        assignedNames:Array.isArray(e.asignados)?e.asignados.filter(Boolean):[],
         assigned:Array.isArray(e.asignados)&&e.asignados.length?e.asignados.join(', '):'Sin asignar',
         past:isPastDateTime(e.fecha,e.hora)
       }));
@@ -445,6 +461,7 @@ function eventStatePill(e){
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.organizador||'',
+        assignedNames:[],
         assigned:'',
         past:isPastDateTime(e.fechaEvento,e.horaFin||e.horaInicio)
       }));
@@ -461,6 +478,7 @@ function eventStatePill(e){
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.observaciones||'',
+        assignedNames:String(e.responsable||'').trim()?[String(e.responsable).trim()]:[],
         assigned:e.responsable||'Sin asignar',
         past:isPastDateTime(e.fecha,e.horaFin||e.horaInicio)
       }));
@@ -487,13 +505,26 @@ function eventStatePill(e){
       const clickable=item.source==='local'||item.source==='tasa';
       const assignedText=String(item.assigned||'').trim();
       const hasAssigned=!!assignedText && assignedText.toLowerCase()!=='sin asignar';
+      const assignedNames=Array.isArray(item.assignedNames)?item.assignedNames.filter(Boolean):[];
+      const primaryAssigned=assignedNames[0]||'';
+      const photoUrl=staffPhotoUrl(primaryAssigned);
+
+      const profileHtml=item.source==='tasa'
+        ? ''
+        : (photoUrl
+          ? `<img class="combined-profile-photo" src="${esc(photoUrl)}" alt="${esc(primaryAssigned)}" loading="lazy" decoding="async">`
+          : `<div class="combined-profile-placeholder ${hasAssigned?'has-assignment':'is-empty'}" title="${esc(hasAssigned?primaryAssigned:'Sin asignar')}">${personIconHtml(hasAssigned)}</div>`);
 
       return `
         <article
           class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${clickable?' combined-clickable':''}"
           ${clickable?`data-combined-source="${esc(item.source)}" data-combined-id="${esc(item.id)}" role="button" tabindex="0"`:''}
         >
-          <div class="combined-time">${esc(item.time)}</div>
+          <div class="combined-left">
+            <div class="combined-time">${esc(item.time)}</div>
+            ${profileHtml}
+          </div>
+
           <div class="combined-body">
             <span class="combined-source">${esc(item.sourceLabel)}</span>
             <strong>${esc(item.title)}</strong>
