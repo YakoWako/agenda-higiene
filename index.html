@@ -1326,6 +1326,116 @@
       transform:scale(.992);
     }
   }
+
+  /* ===== Retratos de funcionarios en Agenda del día ===== */
+  .combined-event{
+    grid-template-columns:86px minmax(0,1fr)!important;
+    gap:13px!important;
+  }
+
+  .combined-left{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:7px;
+    padding-top:1px;
+  }
+
+  .combined-time{
+    width:100%;
+    padding-top:0!important;
+    font-size:12.5px!important;
+    line-height:1.15!important;
+    text-align:center;
+    white-space:nowrap;
+  }
+
+  .combined-profile-photo,
+  .combined-profile-placeholder{
+    width:56px;
+    height:70px;
+    flex:0 0 auto;
+    border-radius:11px;
+    background:#fff;
+    border:1px solid #c8d8ce;
+    box-shadow:0 3px 10px rgba(31,85,52,.08);
+  }
+
+  .combined-profile-photo{
+    display:block;
+    object-fit:cover;
+    object-position:center top;
+  }
+
+  .combined-profile-placeholder{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#f7faf8;
+    border-style:dashed;
+  }
+
+  .combined-profile-placeholder .person-glyph{
+    width:24px;
+    height:28px;
+  }
+
+  .combined-profile-placeholder.is-empty{
+    background:#f7faff;
+    border-color:#bdd1ee;
+  }
+
+  .combined-body > strong{
+    font-size:13.5px!important;
+    line-height:1.25!important;
+    margin-top:4px!important;
+  }
+
+  .combined-meta{
+    gap:5px 10px!important;
+    margin-top:4px!important;
+    font-size:11px!important;
+  }
+
+  .combined-detail{
+    font-size:10.7px!important;
+    margin-top:3px!important;
+  }
+
+  @media(max-width:560px){
+    .combined-event{
+      grid-template-columns:72px minmax(0,1fr)!important;
+      gap:10px!important;
+      padding:9px 10px!important;
+    }
+
+    .combined-time{
+      font-size:11.5px!important;
+    }
+
+    .combined-profile-photo,
+    .combined-profile-placeholder{
+      width:50px;
+      height:63px;
+      border-radius:10px;
+    }
+
+    .combined-profile-placeholder .person-glyph{
+      width:22px;
+      height:26px;
+    }
+
+    .combined-body > strong{
+      font-size:12.5px!important;
+      line-height:1.22!important;
+    }
+
+    .combined-meta,
+    .combined-detail{
+      font-size:10px!important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1735,7 +1845,7 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=27"></script>
+<script src="app.js?v=28"></script>
 <script src="tasa.js?v=10"></script>
 <script src="alcaldia.js?v=17"></script>
 <script src="./pwa.js?v=4"></script>
