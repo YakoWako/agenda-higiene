@@ -1051,7 +1051,8 @@
       assignables=[...new Set([
         ...(Array.isArray(data?.assignables)?data.assignables:[]),
         'Evelyn Marín',
-        'Willy Sánchez'
+        'Willy Sánchez',
+        'Gabriela Castro'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
