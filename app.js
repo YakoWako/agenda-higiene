@@ -12,7 +12,8 @@
     'Gabriel Torres':'./profiles/gabriel-torres.jpg',
     'Roque Mendoza':'./profiles/roque-mendoza.jpg',
     'Darwin Zambrano':'./profiles/darwin-zambrano.jpg',
-    'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg'
+    'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg',
+    'María Holguín':'./profiles/maria-holguin.jpg'
   });
 
   const STAFF_PHONES = Object.freeze({
@@ -23,7 +24,8 @@
     'William Pruss':'098 768 9683',
     'Carlos Pacheco':'098 763 8189',
     'Jordy Zamora':'097 874 2246',
-    'Jhonny Zambrano':'096 089 7917'
+    'Jhonny Zambrano':'096 089 7917',
+    'María Holguín':'098 941 3082'
   });
 
   function staffPhotoUrl(name){
