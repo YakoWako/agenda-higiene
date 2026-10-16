@@ -41,6 +41,7 @@
 
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
   let dailySelectedDate = '';
+  let combinedSelectedDate = '';
   let currentModule = 'local';
   let localCurrentView = 'daily';
   let readerPreview = false;
@@ -698,7 +699,7 @@ function eventStatePill(e){
   }
 
   function renderCombinedAgenda(){
-    const date=dailySelectedDate||todayISO();
+    const date=combinedSelectedDate||dailySelectedDate||todayISO();
     const list=$('#combinedAgendaList');
     const title=$('#combinedAgendaTitle');
     if(!list||!title) return;
@@ -775,6 +776,7 @@ function eventStatePill(e){
     const list=$('#combinedAgendaList');
     if(!modal||!list) return;
 
+    combinedSelectedDate=dailySelectedDate||todayISO();
     modal.classList.add('open');
     renderCombinedAgenda();
 
@@ -1123,6 +1125,18 @@ function eventStatePill(e){
     };
     $('#combinedAgendaBtn').onclick=openCombinedAgenda;
     $('#combinedAgendaClose').onclick=closeCombinedAgenda;
+    $('#combinedAgendaPrevDay').onclick=()=>{
+      combinedSelectedDate=shiftISODate(combinedSelectedDate||todayISO(),-1);
+      renderCombinedAgenda();
+    };
+    $('#combinedAgendaNextDay').onclick=()=>{
+      combinedSelectedDate=shiftISODate(combinedSelectedDate||todayISO(),1);
+      renderCombinedAgenda();
+    };
+    $('#combinedAgendaToday').onclick=()=>{
+      combinedSelectedDate=todayISO();
+      renderCombinedAgenda();
+    };
     $('#combinedAgendaModal').onclick=e=>{if(e.target===$('#combinedAgendaModal'))closeCombinedAgenda();};
     $('#dailyDatePicker').onchange=()=>{
       if($('#dailyDatePicker').value){
