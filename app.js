@@ -11,11 +11,32 @@
     'Gabriela Castro':'./profiles/gabriela-castro.jpg',
     'Gabriel Torres':'./profiles/gabriel-torres.jpg',
     'Roque Mendoza':'./profiles/roque-mendoza.jpg',
-    'Darwin Zambrano':'./profiles/darwin-zambrano.jpg'
+    'Darwin Zambrano':'./profiles/darwin-zambrano.jpg',
+    'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg'
+  });
+
+  const STAFF_PHONES = Object.freeze({
+    'Gabriela Castro':'099 841 7991',
+    'Evelyn Marín':'097 920 8408',
+    'Darwin Zambrano':'099 429 8886',
+    'Roque Mendoza':'099 340 3307',
+    'William Pruss':'098 768 9683',
+    'Carlos Pacheco':'098 763 8189',
+    'Jordy Zamora':'097 874 2246',
+    'Jhonny Zambrano':'096 089 7917'
   });
 
   function staffPhotoUrl(name){
     return STAFF_PHOTOS[String(name||'').trim()]||'';
+  }
+
+  function staffPhone(name){
+    return STAFF_PHONES[String(name||'').trim()]||'';
+  }
+
+  function phoneHref(value){
+    const digits=String(value||'').replace(/\D+/g,'');
+    return digits ? 'tel:'+digits : '';
   }
 
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
@@ -461,8 +482,8 @@ function eventStatePill(e){
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.organizador||'',
-        assignedNames:[],
-        assigned:'',
+        assignedNames:['Jhonny Zambrano'],
+        assigned:'Jhonny Zambrano',
         past:isPastDateTime(e.fechaEvento,e.horaFin||e.horaInicio)
       }));
 
@@ -480,6 +501,7 @@ function eventStatePill(e){
         detail:e.observaciones||'',
         assignedNames:String(e.responsable||'').trim()?[String(e.responsable).trim()]:[],
         assigned:e.responsable||'Sin asignar',
+        llegadaAlcaldesa:String(e.llegadaAlcaldesa||'').trim(),
         past:isPastDateTime(e.fecha,e.horaFin||e.horaInicio)
       }));
 
@@ -489,6 +511,190 @@ function eventStatePill(e){
       if(av!==bv) return av.localeCompare(bv);
       return a.sourceLabel.localeCompare(b.sourceLabel);
     });
+  }
+
+  function normalizeCombinedArrival(value){
+    const raw=String(value||'').trim();
+    if(!raw) return '';
+    if(/puntual/i.test(raw)) return 'Puntual';
+    const m=raw.match(/(\d{1,2})[:Hh.](\d{2})/);
+    if(!m) return raw;
+    return String(Number(m[1])).padStart(2,'0')+':'+m[2];
+  }
+
+  function safeHttpUrl(value){
+    const raw=String(value||'').trim();
+    if(!raw) return '';
+    const candidate=/^https?:\/\//i.test(raw)?raw:'https://'+raw;
+    try{
+      const u=new URL(candidate);
+      return /^https?:$/.test(u.protocol)?u.href:'';
+    }catch(_){
+      return '';
+    }
+  }
+
+  function firstHttpUrl(...values){
+    for(const value of values.flat(Infinity)){
+      const raw=String(value||'');
+      const found=(raw.match(/https?:\/\/[^\s<>"']+/i)||[])[0];
+      const clean=safeHttpUrl(found||raw);
+      if(clean) return clean;
+    }
+    return '';
+  }
+
+  function mapsSearchUrl(place){
+    const p=String(place||'').trim();
+    return p ? 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p) : '';
+  }
+
+  function combinedRawEvent(source,id){
+    if(source==='local'){
+      return state.events.find(e=>String(e.id)===String(id))||null;
+    }
+    if(source==='tasa'){
+      return (window.AgendaModules?.tasa?.getEvents?.()||[])
+        .find(e=>String(e.id)===String(id))||null;
+    }
+    if(source==='alcaldia'){
+      return (window.AgendaModules?.alcaldia?.getEvents?.()||[])
+        .find(e=>String(e.id)===String(id))||null;
+    }
+    return null;
+  }
+
+  function combinedDetailData(source,e){
+    if(!e) return null;
+
+    if(source==='local'){
+      const links=getEventLinks(e);
+      const names=Array.isArray(e.asignados)?e.asignados.filter(Boolean):[];
+      return {
+        sourceLabel:'AGENDA LOCAL',
+        title:e.tema||e.tipo||'Evento',
+        date:e.fecha||'',
+        time:e.hora||'Sin hora',
+        place:e.lugar||'',
+        assigned:names.length?names.join(', '):'Sin asignar',
+        observations:e.observaciones||'',
+        locationUrl:links.ubicacionUrl||mapsSearchUrl(e.lugar),
+        meetingUrl:links.reunionUrl||'',
+        arrival:''
+      };
+    }
+
+    if(source==='tasa'){
+      const locationUrl=firstHttpUrl(
+        e.ubicacionUrl,e.linkUbicacion,e.urlUbicacion,e.enlaceUbicacion
+      )||mapsSearchUrl(e.lugar);
+      const meetingUrl=firstHttpUrl(
+        e.reunionUrl,e.linkReunion,e.urlReunion,e.enlaceReunion,
+        e.zoomUrl,e.meetUrl,e.teamsUrl
+      );
+      return {
+        sourceLabel:'EVENTO PÚBLICO',
+        title:e.nombreEvento||'Evento público',
+        date:e.fechaEvento||'',
+        time:combinedTimeRange(e.horaInicio,e.horaFin),
+        place:e.lugar||'',
+        assigned:'Jhonny Zambrano',
+        observations:e.observaciones||e.notas||e.detalle||'',
+        locationUrl,
+        meetingUrl,
+        arrival:''
+      };
+    }
+
+    const locationUrl=firstHttpUrl(
+      e.ubicacionUrl,e.linkUbicacion,e.urlUbicacion,e.enlaceUbicacion
+    )||mapsSearchUrl(e.lugar);
+    const meetingUrl=firstHttpUrl(
+      e.reunionUrl,e.linkReunion,e.urlReunion,e.enlaceReunion,
+      e.zoomUrl,e.meetUrl,e.teamsUrl
+    );
+    return {
+      sourceLabel:'AGENDA ALCALDÍA',
+      title:e.nombreEvento||'Actividad de Alcaldía',
+      date:e.fecha||'',
+      time:combinedTimeRange(e.horaInicio,e.horaFin),
+      place:e.lugar||'',
+      assigned:e.responsable||'Sin asignar',
+      observations:e.observaciones||'',
+      locationUrl,
+      meetingUrl,
+      arrival:normalizeCombinedArrival(e.llegadaAlcaldesa)
+    };
+  }
+
+  function ensureCombinedDetailModal(){
+    let modal=$('#combinedEventDetailModal');
+    if(modal) return modal;
+
+    modal=document.createElement('div');
+    modal.id='combinedEventDetailModal';
+    modal.className='modal';
+    modal.innerHTML=`
+      <div class="modal-card combined-event-detail-card">
+        <div class="modal-head">
+          <div>
+            <span id="combinedDetailSource" class="combined-source"></span>
+            <h2 id="combinedDetailTitle" style="margin:7px 0 0;color:var(--navy)"></h2>
+          </div>
+          <button id="combinedDetailClose" type="button">✕</button>
+        </div>
+        <div id="combinedDetailBody" class="combined-event-detail-body"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    $('#combinedDetailClose').onclick=()=>modal.classList.remove('open');
+    modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open');};
+    return modal;
+  }
+
+  function openCombinedEventDetail(source,id){
+    const raw=combinedRawEvent(source,id);
+    const data=combinedDetailData(source,raw);
+    if(!data) return;
+
+    const modal=ensureCombinedDetailModal();
+    const sourceEl=$('#combinedDetailSource');
+    const titleEl=$('#combinedDetailTitle');
+    const body=$('#combinedDetailBody');
+
+    sourceEl.textContent=data.sourceLabel;
+    sourceEl.className='combined-source detail-source-'+source;
+    titleEl.textContent=data.title;
+
+    const assignedName=String(data.assigned||'Sin asignar');
+    const hasAssigned=assignedName.toLowerCase()!=='sin asignar';
+    const primary=hasAssigned?assignedName.split(',')[0].trim():'';
+    const phone=staffPhone(primary);
+
+    body.innerHTML=`
+      <div class="combined-detail-grid">
+        <div><span>Fecha</span><strong>${esc(data.date?fmtDate(data.date):'—')}</strong></div>
+        <div><span>Horario</span><strong>${esc(data.time||'—')}</strong></div>
+        <div class="wide"><span>Lugar</span><strong>${esc(data.place||'—')}</strong></div>
+        <div class="wide combined-detail-assigned">
+          <span>Funcionario asignado</span>
+          <strong class="${hasAssigned?'assigned-value':'assigned-empty'}">${personIconHtml(hasAssigned)} ${esc(assignedName)}</strong>
+          ${phone?`<a href="${esc(phoneHref(phone))}" class="combined-phone">📞 ${esc(phone)}</a>`:''}
+        </div>
+        ${data.arrival?`
+          <div class="wide"><span>Llegada Alcaldesa</span><strong>${esc(data.arrival==='Puntual'?'Puntual':data.arrival)}</strong></div>
+        `:''}
+        ${data.observations?`
+          <div class="wide"><span>Observaciones</span><strong class="normal-weight">${esc(data.observations)}</strong></div>
+        `:''}
+      </div>
+
+      <div class="combined-detail-links">
+        ${data.locationUrl?`<a class="secondary" href="${esc(data.locationUrl)}" target="_blank" rel="noopener">📍 Abrir ubicación</a>`:''}
+        ${data.meetingUrl?`<a class="secondary" href="${esc(data.meetingUrl)}" target="_blank" rel="noopener">🎥 Abrir reunión</a>`:''}
+      </div>`;
+
+    modal.classList.add('open');
   }
 
   function renderCombinedAgenda(){
@@ -502,18 +708,22 @@ function eventStatePill(e){
     const rows=getCombinedAgendaItems(date);
 
     list.innerHTML=rows.length?rows.map(item=>{
-      const clickable=item.source==='local'||item.source==='tasa';
+      const clickable=true;
       const assignedText=String(item.assigned||'').trim();
       const hasAssigned=!!assignedText && assignedText.toLowerCase()!=='sin asignar';
       const assignedNames=Array.isArray(item.assignedNames)?item.assignedNames.filter(Boolean):[];
       const primaryAssigned=assignedNames[0]||'';
       const photoUrl=staffPhotoUrl(primaryAssigned);
+      const phone=staffPhone(primaryAssigned);
 
-      const profileHtml=item.source==='tasa'
-        ? ''
-        : (photoUrl
-          ? `<img class="combined-profile-photo" src="${esc(photoUrl)}" alt="${esc(primaryAssigned)}" loading="lazy" decoding="async">`
-          : `<div class="combined-profile-placeholder ${hasAssigned?'has-assignment':'is-empty'}" title="${esc(hasAssigned?primaryAssigned:'Sin asignar')}">${personIconHtml(hasAssigned)}</div>`);
+      const photoBlock=photoUrl
+        ? `<img class="combined-profile-photo" src="${esc(photoUrl)}" alt="${esc(primaryAssigned)}" loading="lazy" decoding="async">`
+        : `<div class="combined-profile-placeholder ${hasAssigned?'has-assignment':'is-empty'}" title="${esc(hasAssigned?primaryAssigned:'Sin asignar')}">${personIconHtml(hasAssigned)}</div>`;
+
+      const profileHtml=`
+        ${photoBlock}
+        ${phone?`<a class="combined-profile-phone" href="${esc(phoneHref(phone))}" onclick="event.stopPropagation()">${esc(phone)}</a>`:''}
+      `;
 
       return `
         <article
@@ -529,8 +739,11 @@ function eventStatePill(e){
             <span class="combined-source">${esc(item.sourceLabel)}</span>
             <strong>${esc(item.title)}</strong>
             <div class="combined-meta">
-              ${item.place?`<span>📍 ${esc(item.place)}</span>`:''}
+              ${item.place?`<span class="combined-place">📍 ${esc(item.place)}</span>`:''}
               ${assignedText?`<span class="combined-assigned">${personIconHtml(hasAssigned)}<strong class="${hasAssigned?'assigned-value':'assigned-empty'}">${esc(assignedText)}</strong></span>`:''}
+              ${item.source==='alcaldia'&&item.llegadaAlcaldesa?`
+                <span class="combined-arrival">🕐 Llegada Alcaldesa: ${esc(normalizeCombinedArrival(item.llegadaAlcaldesa)==='Puntual'?'Puntual':normalizeCombinedArrival(item.llegadaAlcaldesa))}</span>
+              `:''}
             </div>
             ${item.detail?`<div class="combined-detail">${esc(item.detail)}</div>`:''}
           </div>
@@ -544,14 +757,7 @@ function eventStatePill(e){
 
         closeCombinedAgenda();
 
-        if(source==='local'){
-          openEventInfo(id);
-          return;
-        }
-
-        if(source==='tasa'){
-          window.AgendaModules?.tasa?.openEvent?.(id);
-        }
+        openCombinedEventDetail(source,id);
       };
 
       card.onclick=open;
