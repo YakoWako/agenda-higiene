@@ -1052,7 +1052,8 @@
         ...(Array.isArray(data?.assignables)?data.assignables:[]),
         'Evelyn Marín',
         'Willy Sánchez',
-        'Gabriela Castro'
+        'Gabriela Castro',
+        'María Holguín'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
