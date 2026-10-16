@@ -1590,6 +1590,58 @@
       grid-column:auto;
     }
   }
+
+  /* ===== Navegación de fecha en Agenda del día ===== */
+  .combined-date-nav{
+    display:grid;
+    grid-template-columns:42px 1fr 42px;
+    align-items:center;
+    gap:8px;
+    margin:10px 0 9px;
+  }
+
+  .combined-date-arrow,
+  .combined-date-today{
+    min-height:38px;
+    padding:7px 10px;
+    border-radius:11px;
+  }
+
+  .combined-date-arrow{
+    font-size:22px;
+    line-height:1;
+    font-weight:800;
+  }
+
+  .combined-date-today{
+    justify-self:center;
+    min-width:84px;
+    font-size:12px;
+    font-weight:800;
+  }
+
+  @media(max-width:560px){
+    .combined-date-nav{
+      grid-template-columns:38px 1fr 38px;
+      gap:6px;
+      margin:8px 0;
+    }
+
+    .combined-date-arrow,
+    .combined-date-today{
+      min-height:34px;
+      padding:5px 8px;
+    }
+
+    .combined-date-arrow{
+      font-size:20px;
+    }
+
+    .combined-date-today{
+      min-width:72px;
+      font-size:11px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1967,12 +2019,19 @@
 </div>
 <div class="modal" id="combinedAgendaModal">
   <div class="modal-card combined-agenda-modal">
-    <div class="modal-head">
-      <div>
+    <div class="modal-head combined-agenda-head">
+      <div class="combined-agenda-title-wrap">
         <h2 id="combinedAgendaTitle" style="margin:0;color:var(--navy)">Agenda del día</h2>
       </div>
       <button id="combinedAgendaClose" type="button">✕</button>
     </div>
+
+    <div class="combined-date-nav" aria-label="Navegación por fecha">
+      <button class="secondary combined-date-arrow" id="combinedAgendaPrevDay" type="button" aria-label="Día anterior">‹</button>
+      <button class="secondary combined-date-today" id="combinedAgendaToday" type="button">Hoy</button>
+      <button class="secondary combined-date-arrow" id="combinedAgendaNextDay" type="button" aria-label="Día siguiente">›</button>
+    </div>
+
     <div class="combined-legend" aria-hidden="true">
       <span class="legend-local">Agenda Local</span>
       <span class="legend-tasa">Eventos Públicos</span>
@@ -1999,9 +2058,9 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 <script src="tasa.js?v=10"></script>
-<script src="alcaldia.js?v=17"></script>
+<script src="alcaldia.js?v=18"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
