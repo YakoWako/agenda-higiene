@@ -1642,6 +1642,36 @@
       font-size:11px;
     }
   }
+
+  /* ===== Eventos Públicos cancelados ===== */
+  .tasa-event-chip.event-cancelled{
+    background:#f7e5e5!important;
+    border-color:#e4bcbc!important;
+    color:#8c4242!important;
+    box-shadow:inset 3px 0 0 #c96d6d!important;
+  }
+  .tasa-event-chip.event-cancelled small{color:#986868!important}
+  .tasa-cancelled-label{
+    display:block;width:max-content;margin-bottom:2px;padding:2px 5px;
+    border-radius:999px;background:#efd2d2;color:#934a4a;
+    font-size:8px;font-weight:900;letter-spacing:.25px
+  }
+  .tasa-record-card.event-cancelled{
+    background:#fbefef!important;border-color:#e5c3c3!important;
+    box-shadow:inset 4px 0 0 #c96d6d!important
+  }
+  .tasa-cancelled-inline,.tasa-status-cancelled,.combined-status-cancelled{color:#a34a4a!important}
+  .tasa-cancelled-inline{
+    display:inline-flex;margin-right:5px;padding:2px 6px;border-radius:999px;
+    background:#f1d8d8;font-size:9px;line-height:1.1;letter-spacing:.25px
+  }
+  .combined-event.event-cancelled{
+    background:#fbefef!important;border-color:#e4c0c0!important;border-left-color:#c96d6d!important
+  }
+  .combined-cancelled-badge{
+    display:inline-flex;width:max-content;margin:4px 0 1px;padding:3px 7px;border-radius:999px;
+    background:#f1d8d8;color:#9b4949;font-size:9px;font-weight:900;letter-spacing:.3px
+  }
 </style>
 </head>
 <body>
@@ -1859,6 +1889,13 @@
             <div class="field"><label>Organizador</label><input id="tasaOrganizador"></div>
             <div class="field"><label>Cédula / identificación</label><input id="tasaIdentificacion"></div>
             <div class="field"><label>Tasa de aseo cancelada · solo si consta pago</label><input id="tasaPagada" type="number" min="0" step="0.01" placeholder="Dejar vacío si no consta pago"></div>
+            <div class="field">
+              <label>Estado del evento</label>
+              <select id="tasaEstado">
+                <option value="PROGRAMADO">Programado</option>
+                <option value="CANCELADO">Cancelado</option>
+              </select>
+            </div>
           </div>
 
           <div class="field">
@@ -2058,8 +2095,8 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=31"></script>
-<script src="tasa.js?v=10"></script>
+<script src="app.js?v=32"></script>
+<script src="tasa.js?v=11"></script>
 <script src="alcaldia.js?v=19"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
