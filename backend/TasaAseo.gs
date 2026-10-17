@@ -23,13 +23,36 @@ const TASA_ASEO_HEADERS = [
   'organizador',
   'identificacion',
   'tasaPagada',
+  'estado',
   'cronogramaJson',
   'pdfUrl',
   'pdfFileName'
 ];
 
 function ensureTasaAseoSheet_() {
-  return ensureSheet_(getSS_(), TASA_ASEO_SHEET, TASA_ASEO_HEADERS);
+  const ss = getSS_();
+  ensureSheet_(ss, TASA_ASEO_SHEET, TASA_ASEO_HEADERS);
+
+  const sh = ss.getSheetByName(TASA_ASEO_SHEET);
+  if (!sh) throw new Error('HOJA_TASA_ASEO_NO_ENCONTRADA');
+
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const current = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+
+  TASA_ASEO_HEADERS.forEach(function(header){
+    if (current.indexOf(header) < 0) {
+      sh.getRange(1, current.length + 1).setValue(header);
+      current.push(header);
+    }
+  });
+
+  return sh;
+}
+
+function normalizeTasaEstado_(value) {
+  const s = String(value || '').trim().toUpperCase();
+  if (s === 'CANCELADO' || s === 'CANCELADA') return 'CANCELADO';
+  return 'PROGRAMADO';
 }
 
 function getTasaAseoData() {
@@ -68,6 +91,7 @@ function tasaAseoRowToObject_(row) {
     organizador: String(row.organizador || ''),
     identificacion: String(row.identificacion || ''),
     tasaPagada: row.tasaPagada === '' || row.tasaPagada == null ? '' : String(row.tasaPagada),
+    estado: normalizeTasaEstado_(row.estado),
     cronograma: cronograma.map(function(c){
       return {
         fase: String(c && c.fase || ''),
@@ -149,6 +173,7 @@ function saveTasaAseoEvent(payload, role) {
     tasaPagada: payload.tasaPagada === '' || payload.tasaPagada == null
       ? ''
       : String(payload.tasaPagada).trim(),
+    estado: normalizeTasaEstado_(payload.estado),
     cronogramaJson: JSON.stringify(cronograma),
     pdfUrl: pdfUrl,
     pdfFileName: pdfFileName
