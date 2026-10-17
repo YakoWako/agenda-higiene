@@ -74,6 +74,15 @@
     return txt.charAt(0).toUpperCase()+txt.slice(1);
   }
 
+  function normalizeEventStatus(value){
+    const s=String(value||'').trim().toUpperCase();
+    return (s==='CANCELADO'||s==='CANCELADA')?'CANCELADO':'PROGRAMADO';
+  }
+
+  function isCancelledEvent(e){
+    return normalizeEventStatus(e?.estado)==='CANCELADO';
+  }
+
   function isPastTasaEvent(e){
     if(window.AgendaUI?.isPastDateTime){
       return window.AgendaUI.isPastDateTime(e?.fechaEvento,e?.horaFin||e?.horaInicio);
@@ -319,7 +328,8 @@
 
       html+=`<div class="tasa-day${outside?' outside':''}${iso===today?' today':''}" data-date="${iso}">
         <div class="tasa-day-num">${d.getDate()}</div>
-        ${dayEvents.map(e=>`<button class="tasa-event-chip${isPastTasaEvent(e)?' event-past':''}" type="button" data-tasa-id="${esc(e.id)}">
+        ${dayEvents.map(e=>`<button class="tasa-event-chip${isPastTasaEvent(e)?' event-past':''}${isCancelledEvent(e)?' event-cancelled':''}" type="button" data-tasa-id="${esc(e.id)}">
+          ${isCancelledEvent(e)?'<span class="tasa-cancelled-label">Cancelado</span>':''}
           ${esc(e.nombreEvento||'Evento')}
           <small>${esc(e.horaInicio?displayTime(e.horaInicio):'')}${e.horaFin?' – '+esc(displayTime(e.horaFin)):''}</small>
         </button>`).join('')}
@@ -348,9 +358,9 @@
     }
 
     el.innerHTML=rows.length ? rows.map(e=>`
-      <button type="button" class="tasa-record-card${isPastTasaEvent(e)?' event-past':''}" data-tasa-id="${esc(e.id)}" style="width:100%;text-align:left">
+      <button type="button" class="tasa-record-card${isPastTasaEvent(e)?' event-past':''}${isCancelledEvent(e)?' event-cancelled':''}" data-tasa-id="${esc(e.id)}" style="width:100%;text-align:left">
         <div>
-          <strong>${esc(e.nombreEvento||'Evento sin nombre')}</strong>
+          <strong>${isCancelledEvent(e)?'<span class="tasa-cancelled-inline">CANCELADO</span> ':''}${esc(e.nombreEvento||'Evento sin nombre')}</strong>
           <div class="event-meta">
             <span>📅 ${esc(fmtDate(e.fechaEvento))}</span>
             <span>🕐 ${esc(e.horaInicio?displayTime(e.horaInicio):'—')}${e.horaFin?' – '+esc(displayTime(e.horaFin)):''}</span>
@@ -379,6 +389,7 @@
         <div class="tasa-detail-item"><span>Aforo</span><strong>${esc(e.aforo||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Organizador</span><strong>${esc(e.organizador||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Cédula / identificación</span><strong>${esc(e.identificacion||'—')}</strong></div>
+        <div class="tasa-detail-item"><span>Estado del evento</span><strong class="${isCancelledEvent(e)?'tasa-status-cancelled':''}">${isCancelledEvent(e)?'CANCELADO':'PROGRAMADO'}</strong></div>
         ${amountHtml}
       </div>`;
   }
@@ -457,7 +468,8 @@
       tasaAforo:e.aforo||'',
       tasaOrganizador:e.organizador||'',
       tasaIdentificacion:e.identificacion||'',
-      tasaPagada:(e.tasaPagada!==undefined && e.tasaPagada!==null)?e.tasaPagada:''
+      tasaPagada:(e.tasaPagada!==undefined && e.tasaPagada!==null)?e.tasaPagada:'',
+      tasaEstado:normalizeEventStatus(e.estado)
     };
     Object.entries(map).forEach(([id,val])=>{const el=q('#'+id);if(el)el.value=val;});
     const body=q('#tasaCronogramaBody');
@@ -554,6 +566,7 @@
       organizador:val('tasaOrganizador'),
       identificacion:val('tasaIdentificacion'),
       tasaPagada:val('tasaPagada'),
+      estado:normalizeEventStatus(val('tasaEstado')),
       cronograma:collectCronograma()
     };
   }
@@ -577,6 +590,7 @@
       const rawEvents=Array.isArray(data)?data:(data?.events||[]);
       events=rawEvents.map(e=>({
         ...e,
+        estado:normalizeEventStatus(e.estado),
         horaInicio:normalizeTime(e.horaInicio),
         horaFin:normalizeTime(e.horaFin),
         cronograma:Array.isArray(e.cronograma)
