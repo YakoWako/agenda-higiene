@@ -487,6 +487,7 @@ function eventStatePill(e){
         detail:e.organizador||'',
         assignedNames:['Jhonny Zambrano'],
         assigned:'Jhonny Zambrano',
+        cancelled:String(e.estado||'').trim().toUpperCase()==='CANCELADO',
         past:isPastDateTime(e.fechaEvento,e.horaFin||e.horaInicio)
       }));
 
@@ -602,6 +603,7 @@ function eventStatePill(e){
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         assigned:'Jhonny Zambrano',
+        status:String(e.estado||'').trim().toUpperCase()==='CANCELADO'?'CANCELADO':'PROGRAMADO',
         observations:e.observaciones||e.notas||e.detalle||'',
         locationUrl,
         meetingUrl,
@@ -679,6 +681,7 @@ function eventStatePill(e){
         <div><span>Fecha</span><strong>${esc(data.date?fmtDate(data.date):'—')}</strong></div>
         <div><span>Horario</span><strong>${esc(data.time||'—')}</strong></div>
         <div class="wide"><span>Lugar</span><strong>${esc(data.place||'—')}</strong></div>
+        ${data.status?`<div><span>Estado</span><strong class="${data.status==='CANCELADO'?'combined-status-cancelled':''}">${esc(data.status)}</strong></div>`:''}
         <div class="wide combined-detail-assigned">
           <span>Funcionario asignado</span>
           <strong class="${hasAssigned?'assigned-value':'assigned-empty'}">${personIconHtml(hasAssigned)} ${esc(assignedName)}</strong>
@@ -730,7 +733,7 @@ function eventStatePill(e){
 
       return `
         <article
-          class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${clickable?' combined-clickable':''}"
+          class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${item.cancelled?' event-cancelled':''}${clickable?' combined-clickable':''}"
           ${clickable?`data-combined-source="${esc(item.source)}" data-combined-id="${esc(item.id)}" role="button" tabindex="0"`:''}
         >
           <div class="combined-left">
@@ -740,6 +743,7 @@ function eventStatePill(e){
 
           <div class="combined-body">
             <span class="combined-source">${esc(item.sourceLabel)}</span>
+            ${item.cancelled?'<span class="combined-cancelled-badge">CANCELADO</span>':''}
             <strong>${esc(item.title)}</strong>
             <div class="combined-meta">
               ${item.place?`<span class="combined-place">📍 ${esc(item.place)}</span>`:''}
