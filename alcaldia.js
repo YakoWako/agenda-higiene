@@ -716,16 +716,35 @@
 
     const sameStart=normalizeTime(a.horaInicio||'')===normalizeTime(b.horaInicio||'');
     const sameEnd=normalizeTime(a.horaFin||'')===normalizeTime(b.horaFin||'');
+    const sameArrival=normalizeTime(a.llegadaAlcaldesa||'')===normalizeTime(b.llegadaAlcaldesa||'');
     const placeA=normalizeDupText(a.lugar);
     const placeB=normalizeDupText(b.lugar);
-    const samePlace=!!placeA&&!!placeB&&(placeA===placeB||placeA.includes(placeB)||placeB.includes(placeA));
+    const bothHavePlace=!!placeA&&!!placeB;
+    const samePlace=bothHavePlace&&(placeA===placeB||placeA.includes(placeB)||placeB.includes(placeA));
+    const urlA=normalizeLocationField(a.ubicacionUrl||'');
+    const urlB=normalizeLocationField(b.ubicacionUrl||'');
+    const bothHaveUrl=!!urlA&&!!urlB;
+    const sameUrl=bothHaveUrl&&urlA===urlB;
     const nameScore=tokenSimilarity(a.nombreEvento,b.nombreEvento);
 
-    // Coincidencia horaria fuerte + lugar, o coincidencia horaria fuerte + nombre muy parecido.
-    if(sameStart&&sameEnd&&(samePlace||nameScore>=0.46)) return true;
+    // Regla principal: dos actividades con barrios/lugares distintos son eventos distintos,
+    // aunque compartan exactamente el mismo título y rango horario.
+    if(bothHavePlace&&!samePlace) return false;
 
-    // Para agendas con hora fin omitida: misma hora de inicio + lugar + nombre razonablemente parecido.
+    // Si ambas traen enlaces de ubicación diferentes, tampoco deben consolidarse.
+    if(bothHaveUrl&&!sameUrl) return false;
+
+    // Mismo lugar + misma hora de inicio + nombre razonablemente parecido: duplicado real.
     if(sameStart&&samePlace&&nameScore>=0.34) return true;
+
+    // Cuando una captura omite el lugar, solo consolidamos con una coincidencia temporal y nominal muy fuerte.
+    if(!bothHavePlace&&sameStart&&sameEnd&&nameScore>=0.82){
+      // Si ambas fuentes traen una hora de llegada distinta, son actividades independientes.
+      const arrivalA=normalizeTime(a.llegadaAlcaldesa||'');
+      const arrivalB=normalizeTime(b.llegadaAlcaldesa||'');
+      if(arrivalA&&arrivalB&&!sameArrival) return false;
+      return true;
+    }
 
     return false;
   }
@@ -733,7 +752,8 @@
   function duplicateLabel(e){
     const time=normalizeTime(e.horaInicio||'')||'sin hora';
     const name=String(e.nombreEvento||'Actividad sin nombre').trim();
-    return time+' · '+name;
+    const place=String(e.lugar||'').trim();
+    return time+' · '+name+(place?' · '+place:'');
   }
 
   function findDuplicateRows(rows,existingRows){
