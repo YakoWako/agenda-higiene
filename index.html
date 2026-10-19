@@ -1672,6 +1672,118 @@
     display:inline-flex;width:max-content;margin:4px 0 1px;padding:3px 7px;border-radius:999px;
     background:#f1d8d8;color:#9b4949;font-size:9px;font-weight:900;letter-spacing:.3px
   }
+
+  /* ===== Importación masiva de Excel ===== */
+  #excelFile{display:none}
+  .excel-import-toolbar{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .excel-import-actions{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .excel-preview-wrap{
+    margin-top:12px;
+    overflow:auto;
+    max-height:52vh;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#fff;
+  }
+  .excel-preview-table{
+    width:100%;
+    min-width:900px;
+    border-collapse:collapse;
+    font-size:11px;
+  }
+  .excel-preview-table th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:#eef6f0;
+    color:var(--navy);
+    text-align:left;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.25px;
+  }
+  .excel-preview-table th,
+  .excel-preview-table td{
+    padding:8px 9px;
+    border-bottom:1px solid #e4ece6;
+    vertical-align:top;
+  }
+  .excel-preview-table tr.is-duplicate{opacity:.58}
+  .excel-status{
+    display:inline-flex;
+    padding:3px 7px;
+    border-radius:999px;
+    font-size:9px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  .excel-status.ready{background:#e2f3e7;color:#267245}
+  .excel-status.review{background:#fff1cf;color:#8a6500}
+  .excel-status.duplicate{background:#f2e3e3;color:#994747}
+
+  /* ===== Hasta dos perfiles por evento en Agenda del día ===== */
+  .combined-event.has-multi-assignee{
+    grid-template-columns:124px minmax(0,1fr)!important;
+    min-height:118px;
+  }
+  .combined-profile-stack{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap:6px;
+    width:100%;
+  }
+  .combined-profile-stack.is-multiple .combined-profile-photo,
+  .combined-profile-stack.is-multiple .combined-profile-placeholder{
+    width:45px;
+    height:57px;
+    border-radius:9px;
+  }
+  .combined-profile-person{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+  }
+  .combined-profile-stack.is-multiple .combined-profile-phone{
+    width:50px;
+    font-size:7px;
+    white-space:normal;
+    line-height:1.05;
+  }
+  @media(max-width:560px){
+    .combined-event.has-multi-assignee{
+      grid-template-columns:106px minmax(0,1fr)!important;
+      min-height:112px;
+    }
+    .combined-profile-stack.is-multiple{
+      gap:4px;
+    }
+    .combined-profile-stack.is-multiple .combined-profile-photo,
+    .combined-profile-stack.is-multiple .combined-profile-placeholder{
+      width:42px;
+      height:53px;
+    }
+    .excel-import-actions{
+      width:100%;
+      justify-content:stretch;
+    }
+    .excel-import-actions button{
+      flex:1;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1784,11 +1896,50 @@
           <div class="hint" style="margin:8px 0">O seleccione una imagen o PDF guardado en su equipo.</div>
           <div class="upload-actions">
             <button class="secondary" id="pickFileBtn" type="button">📷 Captura / PDF</button>
+            <button class="secondary" id="pickExcelBtn" type="button">📊 Importar Excel</button>
             <input id="sourceFile" type="file" accept="image/*,.pdf,application/pdf">
+            <input id="excelFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
           </div>
           <div class="hint" id="fileName" style="margin-top:8px">Sin archivo seleccionado</div>
         </div>
         <div class="field"><label>O pegue el texto</label><textarea id="rawText" placeholder="Pegue aquí la convocatoria si llegó como texto..."></textarea></div><button class="primary wide" id="processBtn">Procesar y crear ficha</button><div id="processing" class="processing hidden"><span class="spinner"></span>Procesando OCR / IA...</div></div>
+    </div>
+
+    <div id="excelImportPanel" class="generated hidden">
+      <div class="context-head">
+        <strong>📊 Importación masiva desde Excel</strong>
+        <span class="date" id="excelImportCount">—</span>
+      </div>
+      <div class="card">
+        <div class="excel-import-toolbar">
+          <div>
+            <div class="card-title" style="margin-bottom:3px">Vista previa de eventos</div>
+            <div class="hint" id="excelImportHint">Revise las filas antes de guardar. Los posibles duplicados quedan desmarcados automáticamente.</div>
+          </div>
+          <div class="excel-import-actions">
+            <button class="secondary" id="excelSelectAll" type="button">Seleccionar nuevos</button>
+            <button class="secondary" id="excelCancelImport" type="button">Cancelar</button>
+            <button class="primary" id="excelSaveImport" type="button">Guardar seleccionados</button>
+          </div>
+        </div>
+        <div class="excel-preview-wrap">
+          <table class="excel-preview-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Evento</th>
+                <th>Lugar</th>
+                <th>Datos del archivo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="excelPreviewBody"></tbody>
+          </table>
+        </div>
+        <div class="hint" id="excelImportState" style="margin-top:10px"></div>
+      </div>
     </div>
 
     <div id="generatedForm" class="generated hidden">
@@ -2095,7 +2246,8 @@
 
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
-<script src="app.js?v=33"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="app.js?v=34"></script>
 <script src="tasa.js?v=11"></script>
 <script src="alcaldia.js?v=20"></script>
 <script src="./pwa.js?v=4"></script>
