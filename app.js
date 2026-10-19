@@ -1,5 +1,5 @@
 (() => {
-  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Johnny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez'];
+  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Johnny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro'];
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Castro','Jordy Zamora','Gabriel Torres'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
@@ -937,7 +937,8 @@ function eventStatePill(e){
         ...(d?.assignables?.length?d.assignables:ASSIGNABLES_DEFAULT),
         'Evelyn Marín',
         'Willy Sánchez',
-        'Emil Vélez'
+        'Emil Vélez',
+        'Gabriela Castro'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;
       state.config=d?.config||{};
