@@ -54,6 +54,9 @@
   let uploadingEvidence = false;
   let processingInput = false;
   let pastedLocalSourceFile = null;
+  let excelImportRows = [];
+  let savingExcelImport = false;
+  const MAX_EVENT_ASSIGNEES = 2;
   const LOCAL_MODE = !!(window.AGENDA_CONFIG && window.AGENDA_CONFIG.localMode);
   const MAX_UPLOAD_MB = Number(window.AGENDA_CONFIG?.maxUploadMB || 7);
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
@@ -717,23 +720,26 @@ function eventStatePill(e){
       const clickable=true;
       const assignedText=String(item.assigned||'').trim();
       const hasAssigned=!!assignedText && assignedText.toLowerCase()!=='sin asignar';
-      const assignedNames=Array.isArray(item.assignedNames)?item.assignedNames.filter(Boolean):[];
-      const primaryAssigned=assignedNames[0]||'';
-      const photoUrl=staffPhotoUrl(primaryAssigned);
-      const phone=staffPhone(primaryAssigned);
+      const assignedNames=(Array.isArray(item.assignedNames)?item.assignedNames.filter(Boolean):[]).slice(0,MAX_EVENT_ASSIGNEES);
 
-      const photoBlock=photoUrl
-        ? `<img class="combined-profile-photo" src="${esc(photoUrl)}" alt="${esc(primaryAssigned)}" loading="lazy" decoding="async">`
-        : `<div class="combined-profile-placeholder ${hasAssigned?'has-assignment':'is-empty'}" title="${esc(hasAssigned?primaryAssigned:'Sin asignar')}">${personIconHtml(hasAssigned)}</div>`;
+      const profileHtml=assignedNames.length
+        ? '<div class="combined-profile-stack '+(assignedNames.length>1?'is-multiple':'')+'">'+assignedNames.map(name=>{
+            const photoUrl=staffPhotoUrl(name);
+            const phone=staffPhone(name);
+            const portrait=photoUrl
+              ? `<img class="combined-profile-photo" src="${esc(photoUrl)}" alt="${esc(name)}" title="${esc(name)}" loading="lazy" decoding="async">`
+              : `<div class="combined-profile-placeholder has-assignment" title="${esc(name)}">${personIconHtml(true)}</div>`;
 
-      const profileHtml=`
-        ${photoBlock}
-        ${phone?`<a class="combined-profile-phone" href="${esc(phoneHref(phone))}" onclick="event.stopPropagation()">${esc(phone)}</a>`:''}
-      `;
+            return `<div class="combined-profile-person">
+              ${portrait}
+              ${phone?`<a class="combined-profile-phone" href="${esc(phoneHref(phone))}" onclick="event.stopPropagation()" title="${esc(name)}">${esc(phone)}</a>`:''}
+            </div>`;
+          }).join('')+'</div>'
+        : `<div class="combined-profile-stack"><div class="combined-profile-person"><div class="combined-profile-placeholder is-empty" title="Sin asignar">${personIconHtml(false)}</div></div></div>`;
 
       return `
         <article
-          class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${item.cancelled?' event-cancelled':''}${clickable?' combined-clickable':''}"
+          class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${item.cancelled?' event-cancelled':''}${assignedNames.length>1?' has-multi-assignee':''}${clickable?' combined-clickable':''}"
           ${clickable?`data-combined-source="${esc(item.source)}" data-combined-id="${esc(item.id)}" role="button" tabindex="0"`:''}
         >
           <div class="combined-left">
@@ -1041,6 +1047,305 @@ function eventStatePill(e){
     }
   }
 
+  function normalizeExcelHeader(value){
+    return String(value||'')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,' ')
+      .trim();
+  }
+
+  function excelDateToISO(value){
+    if(value instanceof Date&&!Number.isNaN(value.getTime())){
+      const y=value.getFullYear();
+      const m=String(value.getMonth()+1).padStart(2,'0');
+      const d=String(value.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+d;
+    }
+
+    if(typeof value==='number'&&window.XLSX?.SSF?.parse_date_code){
+      const p=window.XLSX.SSF.parse_date_code(value);
+      if(p) return String(p.y).padStart(4,'0')+'-'+String(p.m).padStart(2,'0')+'-'+String(p.d).padStart(2,'0');
+    }
+
+    const raw=String(value||'').trim();
+    if(!raw) return '';
+    const iso=normalizeDate(raw);
+    if(iso) return iso;
+
+    const m=raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+    return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):'';
+  }
+
+  function excelTimeToHHMM(value){
+    if(value instanceof Date&&!Number.isNaN(value.getTime())){
+      return String(value.getHours()).padStart(2,'0')+':'+String(value.getMinutes()).padStart(2,'0');
+    }
+
+    if(typeof value==='number'){
+      const total=Math.round((value%1)*24*60);
+      return String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+    }
+
+    const raw=String(value||'').trim();
+    if(!raw) return '';
+    const m=raw.match(/(\d{1,2})[:hH\.](\d{2})/);
+    if(m) return String(Number(m[1])).padStart(2,'0')+':'+m[2];
+    const simple=raw.match(/^\s*(\d{1,2})\s*(?:am|pm)?\s*$/i);
+    if(simple) return String(Number(simple[1])).padStart(2,'0')+':00';
+    return normalizeTime(raw)||'';
+  }
+
+  function excelEventKey(row){
+    return [
+      String(row.fecha||''),
+      normalizeDupText(row.tema||''),
+      normalizeDupText(row.lugar||''),
+      String(row.hora||'')
+    ].join('|');
+  }
+
+  function isExcelDuplicate(row){
+    const key=excelEventKey(row);
+    return state.events.some(e=>excelEventKey(e)===key);
+  }
+
+  function renderExcelPreview(){
+    const body=$('#excelPreviewBody');
+    const panel=$('#excelImportPanel');
+    if(!body||!panel) return;
+
+    panel.classList.toggle('hidden',!excelImportRows.length);
+
+    const selected=excelImportRows.filter(r=>r.selected).length;
+    const duplicates=excelImportRows.filter(r=>r.duplicate).length;
+    const noTime=excelImportRows.filter(r=>!r.hora).length;
+
+    $('#excelImportCount').textContent=excelImportRows.length+' eventos';
+    $('#excelImportHint').textContent=
+      'Seleccionados: '+selected+
+      ' · Posibles duplicados: '+duplicates+
+      (noTime?' · Sin hora: '+noTime:'');
+
+    body.innerHTML=excelImportRows.map((row,index)=>{
+      const status=row.duplicate
+        ? '<span class="excel-status duplicate">Duplicado</span>'
+        : (!row.hora
+            ? '<span class="excel-status review">Sin hora</span>'
+            : '<span class="excel-status ready">Nuevo</span>');
+
+      const extra=[
+        row.responsables?'<strong>Responsables:</strong> '+esc(row.responsables):'',
+        row.observaciones?'<strong>Obs.:</strong> '+esc(row.observaciones):''
+      ].filter(Boolean).join('<br>')||'—';
+
+      return `<tr class="${row.duplicate?'is-duplicate':''}">
+        <td><input class="excel-row-check" type="checkbox" data-index="${index}" ${row.selected?'checked':''} ${row.invalid?'disabled':''}></td>
+        <td>${esc(fmtDate(row.fecha))}</td>
+        <td>${esc(row.hora||'Sin hora')}</td>
+        <td><strong>${esc(row.tema||'—')}</strong></td>
+        <td>${esc(row.lugar||'—')}</td>
+        <td>${extra}</td>
+        <td>${status}</td>
+      </tr>`;
+    }).join('');
+
+    body.querySelectorAll('.excel-row-check').forEach(box=>{
+      box.onchange=()=>{
+        const row=excelImportRows[Number(box.dataset.index)];
+        if(row) row.selected=box.checked;
+        renderExcelPreview();
+      };
+    });
+  }
+
+  async function parseExcelFile(file){
+    if(!window.XLSX){
+      throw new Error('No se pudo cargar el lector de Excel. Verifique la conexión a internet.');
+    }
+
+    const data=await file.arrayBuffer();
+    const workbook=window.XLSX.read(data,{type:'array',cellDates:true});
+    const sheetName=workbook.SheetNames.find(n=>/agenda/i.test(n))||workbook.SheetNames[0];
+    const sheet=workbook.Sheets[sheetName];
+    const rows=window.XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:true});
+
+    let headerIndex=-1;
+    let headerMap={};
+
+    for(let i=0;i<Math.min(rows.length,25);i++){
+      const normalized=(rows[i]||[]).map(normalizeExcelHeader);
+      const fechaIndex=normalized.findIndex(x=>x==='fecha'||x.includes('fecha'));
+      const eventoIndex=normalized.findIndex(x=>x.includes('nombre del evento')||x==='evento'||x.includes('actividad'));
+      if(fechaIndex>=0&&eventoIndex>=0){
+        headerIndex=i;
+        normalized.forEach((name,col)=>{if(name) headerMap[name]=col;});
+        break;
+      }
+    }
+
+    if(headerIndex<0) throw new Error('No se encontraron las columnas Fecha y Nombre del evento.');
+
+    const findCol=(patterns)=>{
+      const entries=Object.entries(headerMap);
+      for(const p of patterns){
+        const found=entries.find(([name])=>p.test(name));
+        if(found) return found[1];
+      }
+      return -1;
+    };
+
+    const cFecha=findCol([/^fecha$/,/fecha/]);
+    const cEvento=findCol([/nombre del evento/,/^evento$/,/actividad/]);
+    const cLugar=findCol([/^lugar$/,/lugar/]);
+    const cHora=findCol([/^hora$/,/hora/]);
+    const cResp=findCol([/responsable/]);
+    const cObs=findCol([/observacion/,/verificacion/]);
+
+    const parsed=[];
+    rows.slice(headerIndex+1).forEach((cells,offset)=>{
+      const fecha=excelDateToISO(cells[cFecha]);
+      const tema=String(cells[cEvento]||'').trim();
+      if(!fecha&&!tema) return;
+
+      const row={
+        sourceRow:headerIndex+2+offset,
+        fecha,
+        tema,
+        lugar:cLugar>=0?String(cells[cLugar]||'').trim():'',
+        hora:cHora>=0?excelTimeToHHMM(cells[cHora]):'',
+        responsables:cResp>=0?String(cells[cResp]||'').trim():'',
+        observaciones:cObs>=0?String(cells[cObs]||'').trim():'',
+        invalid:!fecha||!tema
+      };
+      row.duplicate=!row.invalid&&isExcelDuplicate(row);
+      row.selected=!row.invalid&&!row.duplicate;
+      parsed.push(row);
+    });
+
+    excelImportRows=parsed;
+    renderExcelPreview();
+    $('#excelImportState').textContent=
+      parsed.length
+        ? 'Archivo leído correctamente. Revise la vista previa antes de guardar.'
+        : 'No se encontraron eventos válidos.';
+    $('#excelImportPanel')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  function buildImportedEvent(row){
+    const registrador=$('#registrador').value==='Otro'
+      ? $('#registradorOtro').value.trim()
+      : $('#registrador').value;
+
+    const selectedFuente=$('#fuente').value==='Otro'
+      ? $('#fuenteOtro').value.trim()
+      : $('#fuente').value;
+
+    const selectedTipo=$('#tipo').value==='Otro'
+      ? $('#tipoOtro').value.trim()
+      : $('#tipo').value;
+
+    const notes=[];
+    if(row.responsables) notes.push('Responsables según archivo: '+row.responsables);
+    if(row.observaciones) notes.push(row.observaciones);
+
+    const now=new Date().toISOString();
+    return normalizeEvent({
+      id:uid('EVT'),
+      createdAt:now,
+      updatedAt:now,
+      registrador:registrador||'Importación Excel',
+      fuente:selectedFuente||'Excel',
+      tipo:selectedTipo||'Evento',
+      tema:row.tema,
+      fecha:row.fecha,
+      hora:row.hora,
+      lugar:row.lugar,
+      convocados:'',
+      linkReunion:'',
+      linkUbicacion:'',
+      asignados:[],
+      asignacionesMeta:{},
+      estadoAdmin:'',
+      observaciones:notes.join(' · '),
+      rawText:'',
+      compromisos:[],
+      evidencias:[]
+    });
+  }
+
+  async function saveExcelImport(){
+    if(!canEdit()){
+      toast('Este perfil no puede importar eventos.');
+      return;
+    }
+    if(savingExcelImport) return;
+
+    const selected=excelImportRows.filter(r=>r.selected&&!r.invalid);
+    if(!selected.length){
+      toast('Seleccione al menos un evento para guardar.');
+      return;
+    }
+
+    const btn=$('#excelSaveImport');
+    const original=btn?.textContent||'Guardar seleccionados';
+    savingExcelImport=true;
+    if(btn) btn.disabled=true;
+
+    let savedCount=0;
+    let failedCount=0;
+
+    try{
+      for(let i=0;i<selected.length;i++){
+        const row=selected[i];
+        if(btn) btn.textContent='Guardando '+(i+1)+' / '+selected.length+'…';
+        $('#excelImportState').textContent='Guardando evento '+(i+1)+' de '+selected.length+'…';
+
+        try{
+          const ev=buildImportedEvent(row);
+          const saved=await serverCall('saveEventBundle',{event:serializeEventForSave(ev)});
+          updateEventInState(saved||ev);
+          savedCount++;
+          row.selected=false;
+          row.duplicate=true;
+        }catch(err){
+          console.error('Error importando fila Excel',row.sourceRow,err);
+          failedCount++;
+        }
+      }
+
+      renderAll();
+      renderExcelPreview();
+      $('#excelImportState').textContent=
+        savedCount+' eventos guardados'+
+        (failedCount?' · '+failedCount+' no pudieron guardarse.':' correctamente.');
+
+      toast(savedCount+' eventos importados.');
+      if(savedCount&&!failedCount){
+        setTimeout(()=>{
+          excelImportRows=[];
+          renderExcelPreview();
+          showView('directory');
+        },900);
+      }
+    }finally{
+      savingExcelImport=false;
+      if(btn){
+        btn.disabled=false;
+        btn.textContent=original;
+      }
+    }
+  }
+
+  function clearExcelImport(){
+    excelImportRows=[];
+    const input=$('#excelFile');
+    if(input) input.value='';
+    renderExcelPreview();
+    if($('#excelImportState')) $('#excelImportState').textContent='';
+  }
+
   function setLocalPastedFile(file){
     pastedLocalSourceFile=file||null;
 
@@ -1066,6 +1371,24 @@ function eventStatePill(e){
     $('#fuente').onchange=()=>$('#fuenteOtroWrap').classList.toggle('hidden',$('#fuente').value!=='Otro');
     $('#tipo').onchange=()=>$('#tipoOtroWrap').classList.toggle('hidden',$('#tipo').value!=='Otro');
     $('#pickFileBtn').onclick=()=>$('#sourceFile').click();
+    $('#pickExcelBtn').onclick=()=>$('#excelFile').click();
+    $('#excelFile').onchange=async()=>{
+      const file=$('#excelFile').files?.[0];
+      if(!file) return;
+      try{
+        $('#fileName').textContent=file.name;
+        await parseExcelFile(file);
+      }catch(err){
+        console.error(err);
+        toast(String(err?.message||err).slice(0,220));
+      }
+    };
+    $('#excelSaveImport').onclick=saveExcelImport;
+    $('#excelCancelImport').onclick=clearExcelImport;
+    $('#excelSelectAll').onclick=()=>{
+      excelImportRows.forEach(row=>{row.selected=!row.invalid&&!row.duplicate;});
+      renderExcelPreview();
+    };
     $('#fTema').oninput=updateGeneratedHeader;
     $('#fFecha').oninput=updateGeneratedHeader;
 
@@ -1361,9 +1684,26 @@ function eventStatePill(e){
 
     window.scrollTo({top:0,behavior:'smooth'});
   }
+  function bindAssigneeLimit(containerSelector,checkboxSelector){
+    const container=$(containerSelector);
+    if(!container) return;
+
+    const boxes=[...container.querySelectorAll(checkboxSelector)];
+    boxes.forEach(box=>{
+      box.onchange=()=>{
+        const checked=boxes.filter(x=>x.checked);
+        if(checked.length>MAX_EVENT_ASSIGNEES){
+          box.checked=false;
+          toast('Puede asignar un máximo de '+MAX_EVENT_ASSIGNEES+' funcionarios por evento.');
+        }
+      };
+    });
+  }
+
   function fillSelectors(){
     $('#registrador').innerHTML='<option value="">Seleccione...</option>'+state.registrars.map(n=>`<option>${esc(n)}</option>`).join('')+'<option>Otro</option>';
     $('#newEventPeople').innerHTML=state.assignables.map(n=>`<label class="person-check"><input type="checkbox" value="${esc(n)}">${esc(n)}</label>`).join('');
+    bindAssigneeLimit('#newEventPeople','input[type="checkbox"]');
   }
   function renderAll(){fillSelectors();renderDaily();renderDirectory();renderGeneral();renderAlerts();}
 
@@ -2623,6 +2963,8 @@ function bindCommitmentActions(e){
 
 function bindEventEditor(e, ro){
   if (ro) return;
+
+  bindAssigneeLimit('#drawerBody','.edit-assignee');
 
   const addCommitmentBtn = $('#addCommitment');
 
