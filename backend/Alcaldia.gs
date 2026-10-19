@@ -149,11 +149,23 @@ function saveAlcaldiaAgenda(payload) {
     const horaInicio =
       normalizeAlcaldiaTime_(item.horaInicio);
 
+    const horaFin =
+      normalizeAlcaldiaTime_(item.horaFin);
+
+    const llegadaAlcaldesa =
+      normalizeAlcaldiaTime_(item.llegadaAlcaldesa);
+
+    const lugar =
+      String(item.lugar || '').trim();
+
     const key =
       buildAlcaldiaIdentity_(
         fecha,
         horaInicio,
-        nombreEvento
+        horaFin,
+        llegadaAlcaldesa,
+        nombreEvento,
+        lugar
       );
 
     const existing =
@@ -162,7 +174,10 @@ function saveAlcaldiaAgenda(payload) {
           buildAlcaldiaIdentity_(
             normalizeAlcaldiaDate_(row.fecha),
             normalizeAlcaldiaTime_(row.horaInicio),
-            String(row.nombreEvento || '')
+            normalizeAlcaldiaTime_(row.horaFin),
+            normalizeAlcaldiaTime_(row.llegadaAlcaldesa),
+            String(row.nombreEvento || ''),
+            String(row.lugar || '')
           ) === key
         );
       });
@@ -181,13 +196,10 @@ function saveAlcaldiaAgenda(payload) {
       updatedAt: now,
       fecha: fecha,
       horaInicio: horaInicio,
-      horaFin:
-        normalizeAlcaldiaTime_(item.horaFin),
-      llegadaAlcaldesa:
-        normalizeAlcaldiaTime_(item.llegadaAlcaldesa),
+      horaFin: horaFin,
+      llegadaAlcaldesa: llegadaAlcaldesa,
       nombreEvento: nombreEvento,
-      lugar:
-        String(item.lugar || '').trim(),
+      lugar: lugar,
       ubicacionUrl:
         normalizeAlcaldiaUrl_(item.ubicacionUrl),
       observaciones:
@@ -575,21 +587,28 @@ function buildAlcaldiaPrompt_() {
     '14. Ignora nombres de remitentes de WhatsApp, horas de envío del mensaje, "Reenviado", respuestas del grupo como "por fa su ayuda", menciones posteriores de asignación interna y elementos de la interfaz del teléfono.',
     '15. Si un dato no consta, devuelve cadena vacía. No infieras nombres, lugares ni horarios.',
     '16. No combines dos actividades distintas aunque se desarrollen en el mismo lugar.',
-    '17. La salida debe representar la agenda institucional, no la conversación de WhatsApp.'
+    '17. IMPORTANTE: un mismo nombre de actividad puede repetirse varias veces el mismo día. Un título repetido NO significa que sea un duplicado.',
+    '18. Trata cada bloque o mensaje de WhatsApp como una actividad independiente cuando cambie cualquiera de estos datos: lugar/barrio, enlace de ubicación, hora de inicio, hora de fin o llegadaAlcaldesa. Por ejemplo, dos bloques llamados "RECREACIÓN FAMILIAR MASIVA" en barrios distintos son DOS eventos y deben devolverse como dos registros, aunque tengan el mismo horario general.',
+    '19. No dedupliques ni fusiones actividades basándote solo en nombreEvento. Conserva todos los registros cuando existan diferencias operativas entre los bloques.',
+    '20. La salida debe representar la agenda institucional, no la conversación de WhatsApp.'
   ].join('\n');
 }
 
 function buildAlcaldiaIdentity_(
   fecha,
   horaInicio,
-  nombreEvento
+  horaFin,
+  llegadaAlcaldesa,
+  nombreEvento,
+  lugar
 ) {
   return [
     String(fecha || '').trim(),
     String(horaInicio || '').trim(),
-    normalizeAlcaldiaText_(
-      nombreEvento
-    )
+    String(horaFin || '').trim(),
+    String(llegadaAlcaldesa || '').trim(),
+    normalizeAlcaldiaText_(nombreEvento),
+    normalizeAlcaldiaText_(lugar)
   ].join('|');
 }
 
