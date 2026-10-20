@@ -1074,7 +1074,8 @@
         'Willy Sánchez',
         'Gabriela Castro',
         'María Holguín',
-        'Jessica Calderón'
+        'Jessica Calderón',
+        'Oldemar Giler'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
