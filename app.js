@@ -14,7 +14,8 @@
     'Darwin Zambrano':'./profiles/darwin-zambrano.jpg',
     'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg',
     'María Holguín':'./profiles/maria-holguin.jpg',
-    'Jessica Calderón':'./profiles/jessica-calderon-final-small.jpg'
+    'Jessica Calderón':'./profiles/jessica-calderon-final-small.jpg',
+    'Oldemar Giler':'./profiles/oldemar-giler.jpg'
   });
 
   const STAFF_PHONES = Object.freeze({
@@ -27,7 +28,8 @@
     'Jordy Zamora':'097 874 2246',
     'Jhonny Zambrano':'096 089 7917',
     'María Holguín':'098 941 3082',
-    'Jessica Calderón':'098 570 8464'
+    'Jessica Calderón':'098 570 8464',
+    'Oldemar Giler':'098 953 3500'
   });
 
   function canonicalStaffName(name){
