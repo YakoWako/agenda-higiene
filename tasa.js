@@ -3,6 +3,13 @@
 
   const q = s => document.querySelector(s);
   const qa = s => [...document.querySelectorAll(s)];
+  const TASA_ASSIGNABLES = [
+    'Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza',
+    'Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres',
+    'Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora',
+    'Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro',
+    'María Holguín','Jessica Calderón'
+  ];
   const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const pad = n => String(n).padStart(2,'0');
   const isoToday = () => {
@@ -390,6 +397,7 @@
         <div class="tasa-detail-item"><span>Organizador</span><strong>${esc(e.organizador||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Cédula / identificación</span><strong>${esc(e.identificacion||'—')}</strong></div>
         <div class="tasa-detail-item"><span>Estado del evento</span><strong class="${isCancelledEvent(e)?'tasa-status-cancelled':''}">${isCancelledEvent(e)?'CANCELADO':'PROGRAMADO'}</strong></div>
+        <div class="tasa-detail-item"><span>Funcionario asignado</span><strong>${esc(e.responsable||'Sin asignar')}</strong></div>
         ${amountHtml}
       </div>`;
   }
@@ -469,6 +477,7 @@
       tasaOrganizador:e.organizador||'',
       tasaIdentificacion:e.identificacion||'',
       tasaPagada:(e.tasaPagada!==undefined && e.tasaPagada!==null)?e.tasaPagada:'',
+      tasaResponsable:e.responsable||'',
       tasaEstado:normalizeEventStatus(e.estado)
     };
     Object.entries(map).forEach(([id,val])=>{const el=q('#'+id);if(el)el.value=val;});
@@ -566,6 +575,7 @@
       organizador:val('tasaOrganizador'),
       identificacion:val('tasaIdentificacion'),
       tasaPagada:val('tasaPagada'),
+      responsable:val('tasaResponsable'),
       estado:normalizeEventStatus(val('tasaEstado')),
       cronograma:collectCronograma()
     };
@@ -741,6 +751,12 @@
   };
 
   function bind(){
+    const responsableSelect=q('#tasaResponsable');
+    if(responsableSelect){
+      responsableSelect.innerHTML='<option value="">Sin asignar</option>'+
+        TASA_ASSIGNABLES.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+    }
+
     qa('#tasaSubnav [data-tasa-view]').forEach(btn=>btn.onclick=()=>showTasaView(btn.dataset.tasaView));
     q('#tasaPrevMonth').onclick=()=>{currentMonth=new Date(currentMonth.getFullYear(),currentMonth.getMonth()-1,1);renderCalendar();};
     q('#tasaNextMonth').onclick=()=>{currentMonth=new Date(currentMonth.getFullYear(),currentMonth.getMonth()+1,1);renderCalendar();};
