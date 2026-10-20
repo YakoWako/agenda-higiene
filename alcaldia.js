@@ -1073,7 +1073,8 @@
         'Evelyn Marín',
         'Willy Sánchez',
         'Gabriela Castro',
-        'María Holguín'
+        'María Holguín',
+        'Jessica Calderón'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
