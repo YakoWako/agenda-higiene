@@ -14,7 +14,7 @@
     'Darwin Zambrano':'./profiles/darwin-zambrano.jpg',
     'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg',
     'María Holguín':'./profiles/maria-holguin.jpg',
-    'Jessica Calderón':'./profiles/jessica-calderon-v3.png'
+    'Jessica Calderón':'./profiles/jessica-calderon-2026.jpg'
   });
 
   const STAFF_PHONES = Object.freeze({
