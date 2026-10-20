@@ -1,5 +1,5 @@
 (() => {
-  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Johnny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro'];
+  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro'];
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Castro','Jordy Zamora','Gabriel Torres'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
@@ -28,12 +28,18 @@
     'María Holguín':'098 941 3082'
   });
 
+  function canonicalStaffName(name){
+    const raw=String(name||'').trim();
+    if(raw==='Johnny Zambrano') return 'Jhonny Zambrano';
+    return raw;
+  }
+
   function staffPhotoUrl(name){
-    return STAFF_PHOTOS[String(name||'').trim()]||'';
+    return STAFF_PHOTOS[canonicalStaffName(name)]||'';
   }
 
   function staffPhone(name){
-    return STAFF_PHONES[String(name||'').trim()]||'';
+    return STAFF_PHONES[canonicalStaffName(name)]||'';
   }
 
   function phoneHref(value){
@@ -945,7 +951,7 @@ function eventStatePill(e){
         'Willy Sánchez',
         'Emil Vélez',
         'Gabriela Castro'
-      ].map(x=>String(x||'').trim()).filter(Boolean))];
+      ].map(x=>canonicalStaffName(String(x||'').trim())).filter(Boolean))];
       state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;
       state.config=d?.config||{};
       state.role=normalizeRole(d?.role||state.config?.role);
@@ -974,7 +980,7 @@ function eventStatePill(e){
 
     rawAsignados.forEach(item=>{
       if(item&&typeof item==='object'){
-        const nombre=String(item.nombre||item.name||'').trim();
+        const nombre=canonicalStaffName(String(item.nombre||item.name||'').trim());
         if(!nombre)return;
 
         asignados.push(nombre);
@@ -984,7 +990,7 @@ function eventStatePill(e){
           asignacionesMeta[nombre]=asignadoAt;
         }
       }else{
-        const nombre=String(item||'').trim();
+        const nombre=canonicalStaffName(String(item||'').trim());
         if(nombre)asignados.push(nombre);
       }
     });
