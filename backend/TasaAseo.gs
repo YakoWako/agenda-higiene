@@ -23,6 +23,7 @@ const TASA_ASEO_HEADERS = [
   'organizador',
   'identificacion',
   'tasaPagada',
+  'responsable',
   'estado',
   'cronogramaJson',
   'pdfUrl',
@@ -91,6 +92,7 @@ function tasaAseoRowToObject_(row) {
     organizador: String(row.organizador || ''),
     identificacion: String(row.identificacion || ''),
     tasaPagada: row.tasaPagada === '' || row.tasaPagada == null ? '' : String(row.tasaPagada),
+    responsable: String(row.responsable || ''),
     estado: normalizeTasaEstado_(row.estado),
     cronograma: cronograma.map(function(c){
       return {
@@ -173,6 +175,7 @@ function saveTasaAseoEvent(payload, role) {
     tasaPagada: payload.tasaPagada === '' || payload.tasaPagada == null
       ? ''
       : String(payload.tasaPagada).trim(),
+    responsable: String(payload.responsable || '').trim(),
     estado: normalizeTasaEstado_(payload.estado),
     cronogramaJson: JSON.stringify(cronograma),
     pdfUrl: pdfUrl,
