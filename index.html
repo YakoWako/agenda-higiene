@@ -2041,6 +2041,12 @@
             <div class="field"><label>Cédula / identificación</label><input id="tasaIdentificacion"></div>
             <div class="field"><label>Tasa de aseo cancelada · solo si consta pago</label><input id="tasaPagada" type="number" min="0" step="0.01" placeholder="Dejar vacío si no consta pago"></div>
             <div class="field">
+              <label>Funcionario asignado</label>
+              <select id="tasaResponsable">
+                <option value="">Sin asignar</option>
+              </select>
+            </div>
+            <div class="field">
               <label>Estado del evento</label>
               <select id="tasaEstado">
                 <option value="PROGRAMADO">Programado</option>
@@ -2247,9 +2253,9 @@
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=35"></script>
-<script src="tasa.js?v=11"></script>
-<script src="alcaldia.js?v=20"></script>
+<script src="app.js?v=36"></script>
+<script src="tasa.js?v=12"></script>
+<script src="alcaldia.js?v=21"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
