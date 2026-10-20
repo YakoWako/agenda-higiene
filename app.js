@@ -1,5 +1,5 @@
 (() => {
-  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro'];
+  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro','Jessica Calderón'];
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Castro','Jordy Zamora','Gabriel Torres'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
@@ -13,7 +13,8 @@
     'Roque Mendoza':'./profiles/roque-mendoza.jpg',
     'Darwin Zambrano':'./profiles/darwin-zambrano.jpg',
     'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg',
-    'María Holguín':'./profiles/maria-holguin.jpg'
+    'María Holguín':'./profiles/maria-holguin.jpg',
+    'Jessica Calderón':'./profiles/jessica-calderon.jpg'
   });
 
   const STAFF_PHONES = Object.freeze({
@@ -25,7 +26,8 @@
     'Carlos Pacheco':'098 763 8189',
     'Jordy Zamora':'097 874 2246',
     'Jhonny Zambrano':'096 089 7917',
-    'María Holguín':'098 941 3082'
+    'María Holguín':'098 941 3082',
+    'Jessica Calderón':'098 570 8464'
   });
 
   function canonicalStaffName(name){
@@ -494,8 +496,8 @@ function eventStatePill(e){
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.organizador||'',
-        assignedNames:['Jhonny Zambrano'],
-        assigned:'Jhonny Zambrano',
+        assignedNames:String(e.responsable||'').trim()?[canonicalStaffName(String(e.responsable).trim())]:[],
+        assigned:String(e.responsable||'').trim()?canonicalStaffName(String(e.responsable).trim()):'Sin asignar',
         cancelled:String(e.estado||'').trim().toUpperCase()==='CANCELADO',
         past:isPastDateTime(e.fechaEvento,e.horaFin||e.horaInicio)
       }));
@@ -611,7 +613,7 @@ function eventStatePill(e){
         date:e.fechaEvento||'',
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
-        assigned:'Jhonny Zambrano',
+        assigned:String(e.responsable||'').trim()?canonicalStaffName(String(e.responsable).trim()):'Sin asignar',
         status:String(e.estado||'').trim().toUpperCase()==='CANCELADO'?'CANCELADO':'PROGRAMADO',
         observations:e.observaciones||e.notas||e.detalle||'',
         locationUrl,
@@ -950,7 +952,8 @@ function eventStatePill(e){
         'Evelyn Marín',
         'Willy Sánchez',
         'Emil Vélez',
-        'Gabriela Castro'
+        'Gabriela Castro',
+        'Jessica Calderón'
       ].map(x=>canonicalStaffName(String(x||'').trim())).filter(Boolean))];
       state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;
       state.config=d?.config||{};
