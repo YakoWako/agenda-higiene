@@ -158,41 +158,16 @@ function saveAlcaldiaAgenda(payload) {
     const lugar =
       String(item.lugar || '').trim();
 
-    const key =
-      buildAlcaldiaIdentity_(
-        fecha,
-        horaInicio,
-        horaFin,
-        llegadaAlcaldesa,
-        nombreEvento,
-        lugar
-      );
-
-    const existing =
-      existingRows.find(function(row){
-        return (
-          buildAlcaldiaIdentity_(
-            normalizeAlcaldiaDate_(row.fecha),
-            normalizeAlcaldiaTime_(row.horaInicio),
-            normalizeAlcaldiaTime_(row.horaFin),
-            normalizeAlcaldiaTime_(row.llegadaAlcaldesa),
-            String(row.nombreEvento || ''),
-            String(row.lugar || '')
-          ) === key
-        );
-      });
-
-    const id =
-      existing && existing.id
-        ? String(existing.id)
-        : makeId_('ALC');
+    // IMPORTANTE:
+    // saveAlcaldiaAgenda() crea actividades NUEVAS. No reutiliza registros
+    // existentes por similitud de fecha, hora o título. Así se evita que
+    // eventos parecidos en barrios distintos se sustituyan entre sí o
+    // hereden accidentalmente el funcionario asignado de otro evento.
+    const id = makeId_('ALC');
 
     const row = {
       id: id,
-      createdAt:
-        existing && existing.createdAt
-          ? existing.createdAt
-          : now,
+      createdAt: now,
       updatedAt: now,
       fecha: fecha,
       horaInicio: horaInicio,
@@ -205,18 +180,12 @@ function saveAlcaldiaAgenda(payload) {
       observaciones:
         String(item.observaciones || '').trim(),
       responsable:
-        existing
-          ? String(existing.responsable || '')
-          : String(item.responsable || '').trim(),
+        String(item.responsable || '').trim(),
       asistio:
-        existing
-          ? isTruthyAlcaldia_(existing.asistio)
-          : !!item.asistio,
+        !!item.asistio,
       estado:
         normalizeAlcaldiaStatus_(
-          item.estado ||
-          (existing && existing.estado) ||
-          'ACTIVO'
+          item.estado || 'ACTIVO'
         )
     };
 
@@ -590,7 +559,10 @@ function buildAlcaldiaPrompt_() {
     '17. IMPORTANTE: un mismo nombre de actividad puede repetirse varias veces el mismo día. Un título repetido NO significa que sea un duplicado.',
     '18. Trata cada bloque o mensaje de WhatsApp como una actividad independiente cuando cambie cualquiera de estos datos: lugar/barrio, enlace de ubicación, hora de inicio, hora de fin o llegadaAlcaldesa. Por ejemplo, dos bloques llamados "RECREACIÓN FAMILIAR MASIVA" en barrios distintos son DOS eventos y deben devolverse como dos registros, aunque tengan el mismo horario general.',
     '19. No dedupliques ni fusiones actividades basándote solo en nombreEvento. Conserva todos los registros cuando existan diferencias operativas entre los bloques.',
-    '20. La salida debe representar la agenda institucional, no la conversación de WhatsApp.'
+    '20. REGLA CRÍTICA DE CONTEO: cada bloque independiente de WhatsApp que tenga su propio Lugar o su propia Ubicación debe producir un elemento separado en events. Antes de responder, cuenta los bloques de actividades visibles y verifica que no hayas omitido ninguno.',
+    '21. EJEMPLO OBLIGATORIO: "RECREACIÓN FAMILIAR MASIVA", 18:00-22:00, Lugar "La Pradera #2 - Parroquia Los Esteros", llegada 19:00, y otro bloque "RECREACIÓN FAMILIAR MASIVA", 18:00-22:00, Lugar "Barrio San Antonio - Parroquia Tarqui", llegada 20:15, son DOS actividades totalmente distintas y deben devolverse como DOS objetos separados.',
+    '22. Aunque dos bloques compartan exactamente nombreEvento, horaInicio y horaFin, NO los fusiones si cambia lugar, ubicacionUrl o llegadaAlcaldesa.',
+    '23. La salida debe representar la agenda institucional, no la conversación de WhatsApp.'
   ].join('\n');
 }
 
