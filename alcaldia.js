@@ -714,38 +714,37 @@
     const bCodes=extractEventCodes(b);
     if(aCodes.length&&bCodes.length&&aCodes.some(code=>bCodes.includes(code))) return true;
 
-    const sameStart=normalizeTime(a.horaInicio||'')===normalizeTime(b.horaInicio||'');
-    const sameEnd=normalizeTime(a.horaFin||'')===normalizeTime(b.horaFin||'');
-    const sameArrival=normalizeTime(a.llegadaAlcaldesa||'')===normalizeTime(b.llegadaAlcaldesa||'');
+    const startA=normalizeTime(a.horaInicio||'');
+    const startB=normalizeTime(b.horaInicio||'');
+    const sameStart=!!startA&&!!startB&&startA===startB;
+
     const placeA=normalizeDupText(a.lugar);
     const placeB=normalizeDupText(b.lugar);
     const bothHavePlace=!!placeA&&!!placeB;
     const samePlace=bothHavePlace&&(placeA===placeB||placeA.includes(placeB)||placeB.includes(placeA));
+
     const urlA=normalizeLocationField(a.ubicacionUrl||'');
     const urlB=normalizeLocationField(b.ubicacionUrl||'');
     const bothHaveUrl=!!urlA&&!!urlB;
     const sameUrl=bothHaveUrl&&urlA===urlB;
+
     const nameScore=tokenSimilarity(a.nombreEvento,b.nombreEvento);
 
-    // Regla principal: dos actividades con barrios/lugares distintos son eventos distintos,
-    // aunque compartan exactamente el mismo título y rango horario.
+    // REGLA DE SEGURIDAD:
+    // si ambos registros indican lugares distintos, NUNCA son duplicados,
+    // aunque fecha, título y horario sean idénticos.
     if(bothHavePlace&&!samePlace) return false;
 
-    // Si ambas traen enlaces de ubicación diferentes, tampoco deben consolidarse.
+    // Dos enlaces de Maps distintos representan dos actividades distintas.
     if(bothHaveUrl&&!sameUrl) return false;
 
-    // Mismo lugar + misma hora de inicio + nombre razonablemente parecido: duplicado real.
+    // Solo se considera duplicado cuando existe una coincidencia física verificable:
+    // mismo lugar o mismo enlace de ubicación, además de misma hora y nombre compatible.
+    if(sameStart&&sameUrl&&nameScore>=0.34) return true;
     if(sameStart&&samePlace&&nameScore>=0.34) return true;
 
-    // Cuando una captura omite el lugar, solo consolidamos con una coincidencia temporal y nominal muy fuerte.
-    if(!bothHavePlace&&sameStart&&sameEnd&&nameScore>=0.82){
-      // Si ambas fuentes traen una hora de llegada distinta, son actividades independientes.
-      const arrivalA=normalizeTime(a.llegadaAlcaldesa||'');
-      const arrivalB=normalizeTime(b.llegadaAlcaldesa||'');
-      if(arrivalA&&arrivalB&&!sameArrival) return false;
-      return true;
-    }
-
+    // Si falta lugar o ubicación, preferimos permitir el registro antes que
+    // eliminar por error una actividad legítima.
     return false;
   }
 
