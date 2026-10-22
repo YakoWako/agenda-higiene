@@ -23,11 +23,11 @@ const TASA_ASEO_HEADERS = [
   'organizador',
   'identificacion',
   'tasaPagada',
-  'responsable',
-  'estado',
   'cronogramaJson',
   'pdfUrl',
-  'pdfFileName'
+  'pdfFileName',
+  'responsable',
+  'estado'
 ];
 
 function ensureTasaAseoSheet_() {
