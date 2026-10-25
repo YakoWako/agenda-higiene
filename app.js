@@ -611,12 +611,98 @@ function eventStatePill(e){
     return out;
   }
 
+  const COMBINED_HIDDEN_STORAGE_KEY='agendaHigiene:combinedHidden:v1';
+
+  function combinedHiddenEntries(){
+    try{
+      const parsed=JSON.parse(localStorage.getItem(COMBINED_HIDDEN_STORAGE_KEY)||'{}');
+      return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:{};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function saveCombinedHiddenEntries(entries){
+    localStorage.setItem(
+      COMBINED_HIDDEN_STORAGE_KEY,
+      JSON.stringify(entries||{})
+    );
+  }
+
+  function combinedHiddenKey(item){
+    return String(item?.source||'')+':'+String(item?.id||'');
+  }
+
+  function isCombinedAgendaHidden(item){
+    if(!item?.source||!item?.id) return false;
+    return !!combinedHiddenEntries()[combinedHiddenKey(item)];
+  }
+
+  function hiddenCombinedCountForDate(date){
+    const entries=combinedHiddenEntries();
+    return Object.values(entries).filter(entry=>String(entry?.date||'')===String(date||'')).length;
+  }
+
+  function hideCombinedAgendaItem(item,date){
+    if(!isAdmin()||!item) return;
+
+    const title=String(item.title||'este evento');
+    const ok=window.confirm(
+      '¿Quitar "'+title+'" únicamente de la vista Agenda del día?\n\n'+
+      'El registro seguirá existiendo intacto en su módulo original.'
+    );
+    if(!ok) return;
+
+    const entries=combinedHiddenEntries();
+    entries[combinedHiddenKey(item)]={
+      source:String(item.source||''),
+      id:String(item.id||''),
+      date:String(date||item.date||''),
+      title:title,
+      hiddenAt:new Date().toISOString()
+    };
+
+    saveCombinedHiddenEntries(entries);
+    renderCombinedAgenda();
+    toast('Evento quitado únicamente de Agenda del día.');
+  }
+
+  function restoreCombinedAgendaHiddenForDate(date){
+    if(!isAdmin()) return;
+
+    const entries=combinedHiddenEntries();
+    const keys=Object.keys(entries).filter(
+      key=>String(entries[key]?.date||'')===String(date||'')
+    );
+
+    if(!keys.length) return;
+
+    const ok=window.confirm(
+      '¿Restaurar '+keys.length+' '+(keys.length===1?'evento oculto':'eventos ocultos')+
+      ' en Agenda del día para esta fecha?'
+    );
+    if(!ok) return;
+
+    keys.forEach(key=>delete entries[key]);
+    saveCombinedHiddenEntries(entries);
+    renderCombinedAgenda();
+    toast(keys.length===1?'Evento restaurado.':'Eventos restaurados.');
+  }
+
+  function setTodayReturnButtonLabel(id,isToday){
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.textContent=isToday?'Hoy':'Regresar a hoy';
+    btn.title=isToday?'Fecha actual':'Volver a la fecha actual';
+  }
+
   function getCombinedAgendaItems(date){
     const local=state.events
       .filter(e=>String(e.fecha||'')===date)
       .map(e=>({
         id:e.id,
         source:'local',
+        date:date,
         sourceLabel:'AGENDA LOCAL',
         title:e.tema||e.tipo||'Evento',
         start:e.hora||'',
@@ -635,6 +721,7 @@ function eventStatePill(e){
       .map(e=>({
         id:e.id,
         source:'tasa',
+        date:date,
         sourceLabel:'EVENTO PÚBLICO',
         title:e.nombreEvento||'Evento público',
         start:e.horaInicio||'',
@@ -658,6 +745,7 @@ function eventStatePill(e){
       .map(e=>({
         id:e.id,
         source:'alcaldia',
+        date:date,
         sourceLabel:'AGENDA ALCALDÍA',
         title:e.nombreEvento||'Actividad de Alcaldía',
         start:e.horaInicio||'',
@@ -675,7 +763,10 @@ function eventStatePill(e){
         past:isPastDateTime(e.fecha,e.horaFin||e.horaInicio)
       }));
 
-    return collapseCombinedAgendaDuplicates([...local,...publicos,...alcaldia])
+    const visible=[...local,...publicos,...alcaldia]
+      .filter(item=>!isCombinedAgendaHidden(item));
+
+    return collapseCombinedAgendaDuplicates(visible)
       .sort((a,b)=>{
         const av=a.start||'99:99';
         const bv=b.start||'99:99';
@@ -877,6 +968,17 @@ function eventStatePill(e){
     if(!list||!title) return;
 
     title.textContent='Agenda del día · '+(formatDailyDate(date)||fmtDate(date));
+    setTodayReturnButtonLabel('combinedAgendaToday',date===todayISO());
+
+    const restoreWrap=$('#combinedAdminTools');
+    const restoreBtn=$('#combinedRestoreHidden');
+    const restoreCount=$('#combinedHiddenCount');
+    const hiddenCount=hiddenCombinedCountForDate(date);
+    const showAdminTools=isAdmin()&&hiddenCount>0;
+
+    if(restoreWrap) restoreWrap.classList.toggle('hidden',!showAdminTools);
+    if(restoreBtn) restoreBtn.textContent='↩ Restaurar ocultos';
+    if(restoreCount) restoreCount.textContent=hiddenCount?String(hiddenCount):'';
 
     const rows=getCombinedAgendaItems(date);
 
@@ -906,6 +1008,14 @@ function eventStatePill(e){
           class="combined-event combined-${esc(item.source)}${item.past?' event-past':''}${item.cancelled?' event-cancelled':''}${assignedNames.length>1?' has-multi-assignee':''}${clickable?' combined-clickable':''}"
           ${clickable?`data-combined-source="${esc(item.source)}" data-combined-id="${esc(item.id)}" role="button" tabindex="0"`:''}
         >
+          ${isAdmin()?`<button
+            class="combined-hide-btn"
+            type="button"
+            data-combined-hide-source="${esc(item.source)}"
+            data-combined-hide-id="${esc(item.id)}"
+            title="Quitar únicamente de Agenda del día"
+            aria-label="Quitar únicamente de Agenda del día"
+          >✕</button>`:''}
           <div class="combined-left">
             <div class="combined-time">${esc(item.time)}</div>
             ${profileHtml}
@@ -926,6 +1036,22 @@ function eventStatePill(e){
           </div>
         </article>`;
     }).join(''):'<div class="empty">No hay eventos registrados para esta fecha.</div>';
+
+    list.querySelectorAll('[data-combined-hide-source][data-combined-hide-id]').forEach(btn=>{
+      btn.onclick=e=>{
+        e.preventDefault();
+        e.stopPropagation();
+
+        const item=rows.find(row=>
+          String(row.source)===String(btn.dataset.combinedHideSource) &&
+          String(row.id)===String(btn.dataset.combinedHideId)
+        );
+
+        if(item) hideCombinedAgendaItem(item,date);
+      };
+
+      btn.onkeydown=e=>e.stopPropagation();
+    });
 
     list.querySelectorAll('[data-combined-source][data-combined-id]').forEach(card=>{
       const open=()=>{
@@ -976,7 +1102,8 @@ function eventStatePill(e){
     toast,
     isPastDateTime,
     renderCombinedAgenda,
-    personIconHtml
+    personIconHtml,
+    setTodayReturnButtonLabel
   };
 
   function normalizeRole(value){
@@ -1633,6 +1760,9 @@ function eventStatePill(e){
       combinedSelectedDate=todayISO();
       renderCombinedAgenda();
     };
+    $('#combinedRestoreHidden').onclick=()=>{
+      restoreCombinedAgendaHiddenForDate(combinedSelectedDate||todayISO());
+    };
     $('#combinedAgendaModal').onclick=e=>{if(e.target===$('#combinedAgendaModal'))closeCombinedAgenda();};
     $('#dailyDatePicker').onchange=()=>{
       if($('#dailyDatePicker').value){
@@ -1998,6 +2128,7 @@ function eventCard(e,readOnly=false){
     $('#dailyDateTitle').textContent=formatted||fmtDate(selected);
     $('#dailyDateBadge').textContent=label;
     $('#dailyDatePicker').value=selected;
+    setTodayReturnButtonLabel('dailyTodayBtn',selected===todayISO());
 
     const title=
       label==='HOY' ? '📅 Eventos de hoy' :
