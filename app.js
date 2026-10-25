@@ -471,6 +471,146 @@ function eventStatePill(e){
     return s||e||'Sin hora';
   }
 
+  function normalizeCombinedMatchText(value){
+    return String(value||'')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function combinedTitleTokens(value){
+    const stop=new Set([
+      'evento','actividad','invitacion','al','a','de','del','la','las','el','los',
+      'para','por','en','y','con','municipal','gad','manta'
+    ]);
+
+    return normalizeCombinedMatchText(value)
+      .split(' ')
+      .filter(token=>token && !stop.has(token));
+  }
+
+  function combinedSimilarity(a,b,mode='plain'){
+    const left=mode==='title'
+      ? combinedTitleTokens(a)
+      : normalizeCombinedMatchText(a).split(' ').filter(Boolean);
+    const right=mode==='title'
+      ? combinedTitleTokens(b)
+      : normalizeCombinedMatchText(b).split(' ').filter(Boolean);
+
+    if(!left.length||!right.length) return 0;
+
+    const A=new Set(left);
+    const B=new Set(right);
+    let common=0;
+    A.forEach(token=>{if(B.has(token)) common++;});
+
+    return common/(new Set([...A,...B]).size||1);
+  }
+
+  function combinedMinutes(value){
+    const m=String(value||'').match(/(\d{1,2}):(\d{2})/);
+    if(!m) return null;
+
+    const h=Number(m[1]);
+    const min=Number(m[2]);
+
+    if(h<0||h>24||min<0||min>59) return null;
+    return h*60+min;
+  }
+
+  function sameCombinedPhysicalEvent(a,b){
+    if(!a||!b||a.source===b.source) return false;
+
+    const titleScore=combinedSimilarity(a.title,b.title,'title');
+    if(titleScore<0.58) return false;
+
+    const placeA=normalizeCombinedMatchText(a.place);
+    const placeB=normalizeCombinedMatchText(b.place);
+
+    if(placeA&&placeB){
+      if(combinedSimilarity(placeA,placeB)<0.50) return false;
+    }else if(titleScore<0.82){
+      return false;
+    }
+
+    const startA=combinedMinutes(a.start);
+    const startB=combinedMinutes(b.start);
+
+    if(startA!=null&&startB!=null){
+      if(Math.abs(startA-startB)>15) return false;
+    }else if(startA!=null||startB!=null){
+      if(
+        titleScore<0.86 ||
+        (placeA&&placeB&&combinedSimilarity(placeA,placeB)<0.75)
+      ) return false;
+    }
+
+    const endA=combinedMinutes(a.end);
+    const endB=combinedMinutes(b.end);
+
+    if(endA!=null&&endB!=null&&Math.abs(endA-endB)>60) return false;
+
+    return true;
+  }
+
+  function combinedSourcePriority(item){
+    const assigned=Array.isArray(item?.assignedNames)&&item.assignedNames.length ? 100 : 0;
+    const sourceRank=item?.source==='local' ? 30 : item?.source==='alcaldia' ? 20 : 10;
+    const arrival=item?.llegadaAlcaldesa ? 5 : 0;
+    return assigned+sourceRank+arrival;
+  }
+
+  function mergeCombinedAgendaItems(a,b){
+    const primary=combinedSourcePriority(a)>=combinedSourcePriority(b)?a:b;
+    const secondary=primary===a?b:a;
+
+    const names=[...new Set([
+      ...(Array.isArray(primary.assignedNames)?primary.assignedNames:[]),
+      ...(Array.isArray(secondary.assignedNames)?secondary.assignedNames:[])
+    ].map(canonicalStaffName).filter(Boolean))].slice(0,MAX_EVENT_ASSIGNEES);
+
+    const labels=[...new Set([
+      ...(Array.isArray(primary.sourceLabels)?primary.sourceLabels:[primary.sourceLabel]),
+      ...(Array.isArray(secondary.sourceLabels)?secondary.sourceLabels:[secondary.sourceLabel])
+    ].filter(Boolean))];
+
+    return {
+      ...primary,
+      title:primary.title||secondary.title,
+      place:primary.place||secondary.place,
+      detail:primary.detail||secondary.detail,
+      assignedNames:names,
+      assigned:names.length?names.join(', '):'Sin asignar',
+      cancelled:!!(primary.cancelled||secondary.cancelled),
+      past:!!(primary.past&&secondary.past),
+      llegadaAlcaldesa:primary.llegadaAlcaldesa||secondary.llegadaAlcaldesa||'',
+      sourceLabels:labels,
+      sourceLabel:labels.join(' · ')
+    };
+  }
+
+  function collapseCombinedAgendaDuplicates(items){
+    const out=[];
+
+    items.forEach(item=>{
+      const index=out.findIndex(existing=>sameCombinedPhysicalEvent(existing,item));
+
+      if(index<0){
+        out.push({
+          ...item,
+          sourceLabels:[item.sourceLabel]
+        });
+      }else{
+        out[index]=mergeCombinedAgendaItems(out[index],item);
+      }
+    });
+
+    return out;
+  }
+
   function getCombinedAgendaItems(date){
     const local=state.events
       .filter(e=>String(e.fecha||'')===date)
@@ -480,6 +620,7 @@ function eventStatePill(e){
         sourceLabel:'AGENDA LOCAL',
         title:e.tema||e.tipo||'Evento',
         start:e.hora||'',
+        end:'',
         time:e.hora||'Sin hora',
         place:e.lugar||'',
         detail:e.tipo||'',
@@ -497,11 +638,16 @@ function eventStatePill(e){
         sourceLabel:'EVENTO PÚBLICO',
         title:e.nombreEvento||'Evento público',
         start:e.horaInicio||'',
+        end:e.horaFin||'',
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.organizador||'',
-        assignedNames:String(e.responsable||'').trim()?[canonicalStaffName(String(e.responsable).trim())]:[],
-        assigned:String(e.responsable||'').trim()?canonicalStaffName(String(e.responsable).trim()):'Sin asignar',
+        assignedNames:String(e.responsable||'').trim()
+          ? [canonicalStaffName(String(e.responsable).trim())]
+          : [],
+        assigned:String(e.responsable||'').trim()
+          ? canonicalStaffName(String(e.responsable).trim())
+          : 'Sin asignar',
         cancelled:String(e.estado||'').trim().toUpperCase()==='CANCELADO',
         past:isPastDateTime(e.fechaEvento,e.horaFin||e.horaInicio)
       }));
@@ -515,21 +661,27 @@ function eventStatePill(e){
         sourceLabel:'AGENDA ALCALDÍA',
         title:e.nombreEvento||'Actividad de Alcaldía',
         start:e.horaInicio||'',
+        end:e.horaFin||'',
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.observaciones||'',
-        assignedNames:String(e.responsable||'').trim()?[String(e.responsable).trim()]:[],
-        assigned:e.responsable||'Sin asignar',
+        assignedNames:String(e.responsable||'').trim()
+          ? [canonicalStaffName(String(e.responsable).trim())]
+          : [],
+        assigned:e.responsable
+          ? canonicalStaffName(String(e.responsable).trim())
+          : 'Sin asignar',
         llegadaAlcaldesa:String(e.llegadaAlcaldesa||'').trim(),
         past:isPastDateTime(e.fecha,e.horaFin||e.horaInicio)
       }));
 
-    return [...local,...publicos,...alcaldia].sort((a,b)=>{
-      const av=a.start||'99:99';
-      const bv=b.start||'99:99';
-      if(av!==bv) return av.localeCompare(bv);
-      return a.sourceLabel.localeCompare(b.sourceLabel);
-    });
+    return collapseCombinedAgendaDuplicates([...local,...publicos,...alcaldia])
+      .sort((a,b)=>{
+        const av=a.start||'99:99';
+        const bv=b.start||'99:99';
+        if(av!==bv) return av.localeCompare(bv);
+        return a.sourceLabel.localeCompare(b.sourceLabel);
+      });
   }
 
   function normalizeCombinedArrival(value){
