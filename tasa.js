@@ -8,7 +8,8 @@
     'Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres',
     'Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora',
     'Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro',
-    'María Holguín','Jessica Calderón','Miguel Escobar'
+    'María Holguín','Jessica Calderón','Miguel Escobar','Fabián Holguin',
+    'José Moreira','Amparito Flores'
   ];
   const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const pad = n => String(n).padStart(2,'0');
