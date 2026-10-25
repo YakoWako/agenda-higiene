@@ -1241,6 +1241,16 @@
       border-radius:10px!important;
     }
 
+    #dailyTodayBtn,
+    #tasaTodayMonth,
+    #alcaldiaToday,
+    #combinedAgendaToday{
+      white-space:nowrap;
+      font-size:11px!important;
+      padding-left:9px!important;
+      padding-right:9px!important;
+    }
+
     .module-description{
       margin-top:4px!important;
       margin-bottom:5px!important;
@@ -1845,7 +1855,7 @@
       <button class="day-arrow" id="dailyNextDay" type="button" title="Día siguiente">›</button>
 
       <div class="daily-date-actions">
-        <button class="secondary" id="dailyTodayBtn" type="button">Hoy</button>
+        <button class="secondary" id="dailyTodayBtn" type="button">Regresar a hoy</button>
         <label class="daily-picker-wrap daily-picker-action" title="Ir a una fecha">
           📅 Ir a fecha
           <input id="dailyDatePicker" type="date" aria-label="Ir a una fecha">
@@ -1977,7 +1987,7 @@
         <div class="month-title" id="tasaMonthTitle">—</div>
         <button class="secondary" id="tasaNextMonth" type="button" title="Mes siguiente">›</button>
         <div class="spacer"></div>
-        <button class="secondary" id="tasaTodayMonth" type="button">Hoy</button>
+        <button class="secondary" id="tasaTodayMonth" type="button">Regresar a hoy</button>
         <label class="tasa-month-picker">📅 Ir a mes<input id="tasaMonthPicker" type="month" aria-label="Ir a un mes"></label>
       </div>
       <div class="tasa-calendar-wrap">
@@ -2090,7 +2100,7 @@
         <button class="secondary" id="alcaldiaNextDay" type="button" title="Día siguiente">›</button>
         <div class="spacer"></div>
         <div class="alcaldia-date-actions">
-          <button class="secondary" id="alcaldiaToday" type="button">Hoy</button>
+          <button class="secondary" id="alcaldiaToday" type="button">Regresar a hoy</button>
           <label class="tasa-month-picker">📅 Ir a fecha<input id="alcaldiaDatePicker" type="date" aria-label="Ir a una fecha"></label>
         </div>
       </div>
@@ -2222,7 +2232,7 @@
 
     <div class="combined-date-nav" aria-label="Navegación por fecha">
       <button class="secondary combined-date-arrow" id="combinedAgendaPrevDay" type="button" aria-label="Día anterior">‹</button>
-      <button class="secondary combined-date-today" id="combinedAgendaToday" type="button">Hoy</button>
+      <button class="secondary combined-date-today" id="combinedAgendaToday" type="button">Regresar a hoy</button>
       <button class="secondary combined-date-arrow" id="combinedAgendaNextDay" type="button" aria-label="Día siguiente">›</button>
     </div>
 
@@ -2253,7 +2263,7 @@
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=42"></script>
+<script src="app.js?v=43"></script>
 <script src="tasa.js?v=13"></script>
 <script src="alcaldia.js?v=24"></script>
 <script src="./pwa.js?v=4"></script>
