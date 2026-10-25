@@ -1315,6 +1315,75 @@
     transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;
   }
 
+  .combined-event{
+    position:relative;
+  }
+
+  .combined-hide-btn{
+    position:absolute;
+    top:7px;
+    right:7px;
+    z-index:2;
+    width:26px;
+    height:26px;
+    min-width:26px;
+    min-height:26px;
+    padding:0;
+    border:1px solid #e6c4c4;
+    border-radius:999px;
+    background:#fff7f7;
+    color:#9b4141;
+    font-size:13px;
+    font-weight:900;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:.82;
+  }
+
+  .combined-hide-btn:hover{
+    background:#fbe9e9;
+    opacity:1;
+  }
+
+  .combined-admin-tools{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:7px;
+    margin:7px 0 2px;
+  }
+
+  .combined-admin-tools.hidden{
+    display:none!important;
+  }
+
+  .combined-admin-tools .secondary{
+    min-height:30px;
+    padding:5px 9px;
+    font-size:10.5px;
+  }
+
+  .combined-hidden-count{
+    min-width:21px;
+    height:21px;
+    padding:0 6px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:#eef3ef;
+    color:#52675a;
+    font-size:10px;
+    font-weight:900;
+  }
+
+  body.reader-ui .combined-hide-btn,
+  body.reader-ui .combined-admin-tools{
+    display:none!important;
+  }
+
   .combined-clickable:hover{
     transform:translateY(-1px);
     border-color:#9dbfb0;
@@ -1855,7 +1924,7 @@
       <button class="day-arrow" id="dailyNextDay" type="button" title="Día siguiente">›</button>
 
       <div class="daily-date-actions">
-        <button class="secondary" id="dailyTodayBtn" type="button">Regresar a hoy</button>
+        <button class="secondary" id="dailyTodayBtn" type="button">Hoy</button>
         <label class="daily-picker-wrap daily-picker-action" title="Ir a una fecha">
           📅 Ir a fecha
           <input id="dailyDatePicker" type="date" aria-label="Ir a una fecha">
@@ -1987,7 +2056,7 @@
         <div class="month-title" id="tasaMonthTitle">—</div>
         <button class="secondary" id="tasaNextMonth" type="button" title="Mes siguiente">›</button>
         <div class="spacer"></div>
-        <button class="secondary" id="tasaTodayMonth" type="button">Regresar a hoy</button>
+        <button class="secondary" id="tasaTodayMonth" type="button">Hoy</button>
         <label class="tasa-month-picker">📅 Ir a mes<input id="tasaMonthPicker" type="month" aria-label="Ir a un mes"></label>
       </div>
       <div class="tasa-calendar-wrap">
@@ -2100,7 +2169,7 @@
         <button class="secondary" id="alcaldiaNextDay" type="button" title="Día siguiente">›</button>
         <div class="spacer"></div>
         <div class="alcaldia-date-actions">
-          <button class="secondary" id="alcaldiaToday" type="button">Regresar a hoy</button>
+          <button class="secondary" id="alcaldiaToday" type="button">Hoy</button>
           <label class="tasa-month-picker">📅 Ir a fecha<input id="alcaldiaDatePicker" type="date" aria-label="Ir a una fecha"></label>
         </div>
       </div>
@@ -2232,7 +2301,7 @@
 
     <div class="combined-date-nav" aria-label="Navegación por fecha">
       <button class="secondary combined-date-arrow" id="combinedAgendaPrevDay" type="button" aria-label="Día anterior">‹</button>
-      <button class="secondary combined-date-today" id="combinedAgendaToday" type="button">Regresar a hoy</button>
+      <button class="secondary combined-date-today" id="combinedAgendaToday" type="button">Hoy</button>
       <button class="secondary combined-date-arrow" id="combinedAgendaNextDay" type="button" aria-label="Día siguiente">›</button>
     </div>
 
@@ -2241,6 +2310,12 @@
       <span class="legend-tasa">Eventos Públicos</span>
       <span class="legend-alcaldia">Agenda Alcaldía</span>
     </div>
+
+    <div class="combined-admin-tools hidden" id="combinedAdminTools">
+      <button class="secondary" id="combinedRestoreHidden" type="button">↩ Restaurar ocultos</button>
+      <span class="combined-hidden-count" id="combinedHiddenCount"></span>
+    </div>
+
     <div id="combinedAgendaList" class="combined-agenda-list"></div>
   </div>
 </div>
@@ -2263,9 +2338,9 @@
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=43"></script>
-<script src="tasa.js?v=13"></script>
-<script src="alcaldia.js?v=24"></script>
+<script src="app.js?v=44"></script>
+<script src="tasa.js?v=14"></script>
+<script src="alcaldia.js?v=25"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
