@@ -32,27 +32,148 @@ const TASA_ASEO_HEADERS = [
 
 function ensureTasaAseoSheet_() {
   const ss = getSS_();
-  ensureSheet_(ss, TASA_ASEO_SHEET, TASA_ASEO_HEADERS);
+  let sh = ss.getSheetByName(TASA_ASEO_SHEET);
 
-  const sh = ss.getSheetByName(TASA_ASEO_SHEET);
-  if (!sh) throw new Error('HOJA_TASA_ASEO_NO_ENCONTRADA');
+  if (!sh) {
+    sh = ss.insertSheet(TASA_ASEO_SHEET);
+    sh.getRange(1, 1, 1, TASA_ASEO_HEADERS.length)
+      .setValues([TASA_ASEO_HEADERS]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, TASA_ASEO_HEADERS.length)
+      .setFontWeight('bold')
+      .setBackground('#0b5cab')
+      .setFontColor('#ffffff');
+    return sh;
+  }
+
+  const legacyHeaders = TASA_ASEO_HEADERS.slice(0, 17);
+  const badIntermediateHeaders = [
+    'id',
+    'createdAt',
+    'updatedAt',
+    'numeroDocumento',
+    'fechaEmision',
+    'nombreEvento',
+    'fechaEvento',
+    'horaInicio',
+    'horaFin',
+    'lugar',
+    'aforo',
+    'organizador',
+    'identificacion',
+    'tasaPagada',
+    'responsable',
+    'estado',
+    'cronogramaJson',
+    'pdfUrl',
+    'pdfFileName'
+  ];
 
   const lastCol = Math.max(sh.getLastColumn(), 1);
-  const current = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  const current = sh.getRange(1, 1, 1, lastCol)
+    .getValues()[0]
+    .map(function(v){ return String(v || '').trim(); });
 
-  TASA_ASEO_HEADERS.forEach(function(header){
-    if (current.indexOf(header) < 0) {
-      sh.getRange(1, current.length + 1).setValue(header);
-      current.push(header);
+  const startsWith = function(values, pattern) {
+    return pattern.every(function(value, index) {
+      return values[index] === value;
+    });
+  };
+
+  if (startsWith(current, badIntermediateHeaders)) {
+    const rowCount = Math.max(sh.getLastRow() - 1, 0);
+
+    if (rowCount > 0) {
+      const width = Math.max(sh.getLastColumn(), 19);
+      const values = sh.getRange(2, 1, rowCount, width).getValues();
+
+      const migrated = values.map(function(r) {
+        const out = new Array(19).fill('');
+
+        for (let i = 0; i <= 13; i++) {
+          out[i] = r[i];
+        }
+
+        const v14 = r[14];
+        const v15 = r[15];
+        const v16 = r[16];
+        const v17 = r[17];
+        const v18 = r[18];
+
+        const status = String(v15 || '').trim().toUpperCase();
+        const looksLikeJson = /^[\[{]/.test(String(v16 || '').trim());
+
+        const rowSavedWithIntermediateSchema =
+          status === 'PROGRAMADO' ||
+          status === 'CANCELADO' ||
+          status === 'CANCELADA' ||
+          (looksLikeJson &&
+            (
+              String(v17 || '').trim() ||
+              String(v18 || '').trim()
+            ));
+
+        if (rowSavedWithIntermediateSchema) {
+          out[14] = v16;
+          out[15] = v17;
+          out[16] = v18;
+          out[17] = v14;
+          out[18] =
+            status === 'CANCELADO' || status === 'CANCELADA'
+              ? 'CANCELADO'
+              : 'PROGRAMADO';
+        } else {
+          out[14] = v14;
+          out[15] = v15;
+          out[16] = v16;
+          out[17] = v17;
+          out[18] = v18;
+        }
+
+        return out;
+      });
+
+      sh.getRange(2, 1, rowCount, 19).setValues(migrated);
     }
-  });
+
+    sh.getRange(1, 1, 1, 19).setValues([TASA_ASEO_HEADERS]);
+
+  } else if (startsWith(current, legacyHeaders)) {
+
+    if (current[17] !== 'responsable') {
+      sh.getRange(1, 18).setValue('responsable');
+    }
+
+    if (current[18] !== 'estado') {
+      sh.getRange(1, 19).setValue('estado');
+    }
+
+  } else if (!startsWith(current, TASA_ASEO_HEADERS)) {
+    throw new Error('ESTRUCTURA_TASA_ASEO_NO_RECONOCIDA');
+  }
+
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, TASA_ASEO_HEADERS.length)
+    .setFontWeight('bold')
+    .setBackground('#0b5cab')
+    .setFontColor('#ffffff');
 
   return sh;
 }
 
 function normalizeTasaEstado_(value) {
-  const s = String(value || '').trim().toUpperCase();
-  if (s === 'CANCELADO' || s === 'CANCELADA') return 'CANCELADO';
+  const s =
+    String(value || '')
+      .trim()
+      .toUpperCase();
+
+  if (
+    s === 'CANCELADO' ||
+    s === 'CANCELADA'
+  ) {
+    return 'CANCELADO';
+  }
+
   return 'PROGRAMADO';
 }
 
