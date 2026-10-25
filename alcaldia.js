@@ -1082,7 +1082,13 @@
         'María Holguín',
         'Jessica Calderón',
         'Oldemar Giler',
-        'Miguel Escobar'
+        'Miguel Escobar',
+        'William Torres',
+        'Emil Vélez',
+        'Jordy Zamora',
+        'Fabián Holguin',
+        'José Moreira',
+        'Amparito Flores'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
