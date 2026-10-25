@@ -1,6 +1,6 @@
 (() => {
-  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro','Jessica Calderón','Miguel Escobar'];
-  const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Castro','Jordy Zamora','Gabriel Torres'];
+  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro','Jessica Calderón','Miguel Escobar','Fabián Holguin','José Moreira','Amparito Flores'];
+  const REGISTRARS_DEFAULT = ['Romeo Mendoza','Gabriela Castro'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
 
@@ -16,7 +16,13 @@
     'María Holguín':'./profiles/maria-holguin.jpg',
     'Jessica Calderón':'./profiles/jessica-calderon-final-small.jpg',
     'Oldemar Giler':'./profiles/oldemar-giler.jpg',
-    'Miguel Escobar':'./profiles/miguel-escobar.jpg'
+    'Miguel Escobar':'./profiles/miguel-escobar.jpg',
+    'William Torres':'./profiles/william-torres.jpg',
+    'Emil Vélez':'./profiles/emil-velez.jpg',
+    'Fabián Holguin':'./profiles/fabian-holguin.jpg',
+    'José Moreira':'./profiles/jose-moreira.jpg',
+    'Amparito Flores':'./profiles/amparito-flores.jpg',
+    'Jordy Zamora':'./profiles/jordy-zamora.jpg'
   });
 
   const STAFF_PHONES = Object.freeze({
@@ -31,7 +37,12 @@
     'María Holguín':'098 941 3082',
     'Jessica Calderón':'098 570 8464',
     'Oldemar Giler':'098 953 3500',
-    'Miguel Escobar':'098 231 0941'
+    'Miguel Escobar':'098 231 0941',
+    'William Torres':'096 324 6550',
+    'Emil Vélez':'098 473 1939',
+    'Fabián Holguin':'096 846 3662',
+    'José Moreira':'099 525 1685',
+    'Amparito Flores':'098 856 8905'
   });
 
   function canonicalStaffName(name){
@@ -1237,9 +1248,12 @@ function eventStatePill(e){
         'Emil Vélez',
         'Gabriela Castro',
         'Jessica Calderón',
-        'Miguel Escobar'
+        'Miguel Escobar',
+        'Fabián Holguin',
+        'José Moreira',
+        'Amparito Flores'
       ].map(x=>canonicalStaffName(String(x||'').trim())).filter(Boolean))];
-      state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;
+      state.registrars=REGISTRARS_DEFAULT;
       state.config=d?.config||{};
       state.role=normalizeRole(d?.role||state.config?.role);
       renderAll();
