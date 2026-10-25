@@ -215,6 +215,13 @@
     title.textContent=formatLongDate(selectedDate);
     if(picker) picker.value=selectedDate;
 
+    if(window.AgendaUI?.setTodayReturnButtonLabel){
+      window.AgendaUI.setTodayReturnButtonLabel('alcaldiaToday',selectedDate===isoToday());
+    }else{
+      const todayBtn=q('#alcaldiaToday');
+      if(todayBtn) todayBtn.textContent=selectedDate===isoToday()?'Hoy':'Regresar a hoy';
+    }
+
     const rows=dailyRows();
     if(count) count.textContent=rows.length
       ? rows.length+' '+(rows.length===1?'actividad registrada':'actividades registradas')
