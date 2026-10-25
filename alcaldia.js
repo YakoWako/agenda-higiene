@@ -1074,7 +1074,8 @@
         'Gabriela Castro',
         'María Holguín',
         'Jessica Calderón',
-        'Oldemar Giler'
+        'Oldemar Giler',
+        'Miguel Escobar'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
       renderDaily();
