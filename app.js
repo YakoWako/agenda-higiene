@@ -1,5 +1,5 @@
 (() => {
-  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro','Jessica Calderón'];
+  const ASSIGNABLES_DEFAULT = ['Carlos Pacheco','William Pruss','Darwin Zambrano','Roque Mendoza','Romeo Mendoza','Leonardo Figueroa','William Torres','Gabriel Torres','Oldemar Giler','Gabriel García','Jhonny Zambrano','Jordy Zamora','Evelyn Marín','Willy Sánchez','Emil Vélez','Gabriela Castro','Jessica Calderón','Miguel Escobar'];
   const REGISTRARS_DEFAULT = ['Carlos Pacheco','William Pruss','Romeo Mendoza','Darwin Zambrano','Jessica Calderón','Gabriela Castro','Jordy Zamora','Gabriel Torres'];
   const EVENT_TYPES = ['Agenda Alcaldía','Reunión','Avanzada','Mesa de trabajo','Capacitación','Socialización','PAP','Otro'];
   const APP_TZ = 'America/Guayaquil';
@@ -15,7 +15,8 @@
     'Jhonny Zambrano':'./profiles/jhonny-zambrano.jpg',
     'María Holguín':'./profiles/maria-holguin.jpg',
     'Jessica Calderón':'./profiles/jessica-calderon-final-small.jpg',
-    'Oldemar Giler':'./profiles/oldemar-giler.jpg'
+    'Oldemar Giler':'./profiles/oldemar-giler.jpg',
+    'Miguel Escobar':'./profiles/miguel-escobar.jpg'
   });
 
   const STAFF_PHONES = Object.freeze({
@@ -29,7 +30,8 @@
     'Jhonny Zambrano':'096 089 7917',
     'María Holguín':'098 941 3082',
     'Jessica Calderón':'098 570 8464',
-    'Oldemar Giler':'098 953 3500'
+    'Oldemar Giler':'098 953 3500',
+    'Miguel Escobar':'098 231 0941'
   });
 
   function canonicalStaffName(name){
@@ -955,7 +957,8 @@ function eventStatePill(e){
         'Willy Sánchez',
         'Emil Vélez',
         'Gabriela Castro',
-        'Jessica Calderón'
+        'Jessica Calderón',
+        'Miguel Escobar'
       ].map(x=>canonicalStaffName(String(x||'').trim())).filter(Boolean))];
       state.registrars=d?.registrars?.length?d.registrars:REGISTRARS_DEFAULT;
       state.config=d?.config||{};
