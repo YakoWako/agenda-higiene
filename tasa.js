@@ -314,6 +314,18 @@
     title.textContent=monthLabel(currentMonth)+' ('+count+')';
     if(picker) picker.value=monthKey(currentMonth);
 
+    const nowForTodayLabel=new Date();
+    const isCurrentMonth=
+      currentMonth.getFullYear()===nowForTodayLabel.getFullYear() &&
+      currentMonth.getMonth()===nowForTodayLabel.getMonth();
+
+    if(window.AgendaUI?.setTodayReturnButtonLabel){
+      window.AgendaUI.setTodayReturnButtonLabel('tasaTodayMonth',isCurrentMonth);
+    }else{
+      const todayBtn=q('#tasaTodayMonth');
+      if(todayBtn) todayBtn.textContent=isCurrentMonth?'Hoy':'Regresar a hoy';
+    }
+
     const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
     let html=weekdays.map(x=>`<div class="tasa-weekday">${x}</div>`).join('');
 
