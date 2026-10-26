@@ -2049,9 +2049,81 @@ function eventCard(e,readOnly=false){
   ${eventStatePill(e)}
   <span>›</span>
 </div>
+
+      ${isAdmin()?`<button
+        class="local-event-delete-btn"
+        type="button"
+        data-local-event-delete="${esc(e.id)}"
+        title="Eliminar definitivamente este evento"
+        aria-label="Eliminar definitivamente este evento"
+      >🗑️</button>`:''}
     </article>`;
 }
+
+  async function deleteLocalEventFromUi(id,btn=null){
+    if(!isAdmin()) return;
+
+    const e=state.events.find(x=>String(x.id)===String(id));
+    if(!e) return;
+
+    const label=String(e.tema||e.tipo||'Evento sin tema').trim();
+    const when=[fmtDate(e.fecha),String(e.hora||'').trim()].filter(Boolean).join(' · ');
+
+    const ok=window.confirm(
+      '¿Eliminar definitivamente este evento?\n\n'+
+      label+
+      (when?'\n'+when:'')+
+      '\n\nTambién se eliminarán sus compromisos y evidencias asociados. Esta acción no se puede deshacer.'
+    );
+    if(!ok) return;
+
+    const old=btn?.textContent||'🗑️';
+
+    try{
+      if(btn){
+        btn.disabled=true;
+        btn.textContent='…';
+      }
+
+      await serverCall('deleteLocalEvent',String(id));
+
+      state.events=state.events.filter(x=>String(x.id)!==String(id));
+
+      if(String(state.currentEventId||'')===String(id)){
+        closeDrawer();
+      }
+
+      renderAll();
+      toast('Evento eliminado definitivamente.');
+    }catch(err){
+      console.error(err);
+      const msg=String(err?.message||err||'');
+
+      if(/Acción no permitida|PERMISO_INSUFICIENTE/i.test(msg)){
+        window.alert(
+          'El botón ya está listo, pero falta habilitar deleteLocalEvent en Apps Script. '+
+          'Actualiza el backend y vuelve a implementar la misma implementación.'
+        );
+      }else{
+        toast('No se pudo eliminar el evento.');
+      }
+    }finally{
+      if(btn&&btn.isConnected){
+        btn.disabled=false;
+        btn.textContent=old;
+      }
+    }
+  }
+
   function attachCards(container,mode='edit'){
+    container.querySelectorAll('[data-local-event-delete]').forEach(btn=>{
+      btn.onclick=event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        deleteLocalEventFromUi(btn.dataset.localEventDelete,btn);
+      };
+    });
+
     container.querySelectorAll('.event-card').forEach(c=>{
       c.onclick=()=>mode==='info'?openEventInfo(c.dataset.id):openEvent(c.dataset.id);
     });
