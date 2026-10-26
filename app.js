@@ -2017,7 +2017,7 @@ function eventStatePill(e){
   }
   function renderAll(){fillSelectors();renderDaily();renderDirectory();renderGeneral();renderAlerts();}
 
-function eventCard(e,readOnly=false){
+function eventCard(e,readOnly=false,allowDelete=false){
   return `
     <article class="event-card${isPastLocalEvent(e)?' event-past':''}" data-id="${esc(e.id)}">
       <div class="event-main">
@@ -2050,7 +2050,7 @@ function eventCard(e,readOnly=false){
   <span>›</span>
 </div>
 
-      ${isAdmin()?`<button
+      ${isAdmin()&&allowDelete?`<button
         class="local-event-delete-btn"
         type="button"
         data-local-event-delete="${esc(e.id)}"
@@ -2128,7 +2128,7 @@ function eventCard(e,readOnly=false){
       c.onclick=()=>mode==='info'?openEventInfo(c.dataset.id):openEvent(c.dataset.id);
     });
   }
-  function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>!['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
+  function renderDirectory(){const q=($('#directorySearch').value||'').toLowerCase();const f=$('#directoryFilter').value;let rows=state.events.filter(e=>!['CERRADO','SUSPENDIDO'].includes(String(e.estadoAdmin||'').toUpperCase())).filter(e=>!f||e.estadoAdmin===f).filter(e=>[e.tema,e.tipo,e.fecha,e.lugar].some(x=>String(x||'').toLowerCase().includes(q))).sort(sortRecent);const el=$('#directoryList');el.innerHTML=rows.length?rows.map(e=>eventCard(e,false,true)).join(''):'<div class="empty">No hay eventos activos.</div>';attachCards(el,'edit');}
   function renderGeneral(){
     const q=($('#generalSearch').value||'').toLowerCase();
 
@@ -2158,7 +2158,7 @@ function eventCard(e,readOnly=false){
     const end=Math.min(start+GENERAL_PAGE_SIZE,total);
     const pageRows=rows.slice(start,end);
 
-    el.innerHTML=pageRows.map(e=>eventCard(e,true)).join('');
+    el.innerHTML=pageRows.map(e=>eventCard(e,true,true)).join('');
     attachCards(el,'info');
 
     pagination.innerHTML=`
