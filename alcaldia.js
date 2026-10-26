@@ -762,6 +762,26 @@
     return time+' · '+name+(place?' · '+place:'');
   }
 
+  function duplicateMatchDetails(match){
+    if(!match) return 'Registro existente no identificado.';
+
+    const date=String(match.fecha||'').trim()||'sin fecha';
+    const start=normalizeTime(match.horaInicio||'')||'sin hora';
+    const end=normalizeTime(match.horaFin||'');
+    const time=end ? start+' - '+end : start;
+    const name=String(match.nombreEvento||'Actividad sin nombre').trim();
+    const place=String(match.lugar||'').trim()||'sin lugar';
+    const id=String(match.id||'').trim()||'sin ID';
+
+    return [
+      'Fecha: '+date,
+      'Hora: '+time,
+      'Actividad: '+name,
+      'Lugar: '+place,
+      'ID: '+id
+    ].join('\n');
+  }
+
   function findDuplicateRows(rows,existingRows){
     const duplicates=[];
     const accepted=[];
@@ -842,26 +862,50 @@
       // duplicados incluso si otro usuario registró la agenda hace unos segundos.
       const fresh=await serverCall('getAlcaldiaData');
       const freshEvents=Array.isArray(fresh?.events)?fresh.events:[];
+
+      // La validación de duplicados siempre trabaja con la fuente real del backend.
+      // Al mismo tiempo actualizamos la copia local para evitar que la cartelera
+      // quede desfasada respecto a lo que realmente existe en Sheets.
+      events=freshEvents.slice();
+
+      if(Array.isArray(fresh?.assignables)&&fresh.assignables.length){
+        assignables=[...new Set(fresh.assignables.map(x=>String(x||'').trim()).filter(Boolean))];
+      }
+
+      renderDaily();
+      renderHistory();
+
       const check=findDuplicateRows(rows,freshEvents);
 
       if(check.duplicates.length){
-        const lines=check.duplicates
-          .map(x=>'• '+duplicateLabel(x.row))
-          .join('\n');
+        const details=check.duplicates
+          .map((x,i)=>{
+            return [
+              'Coincidencia '+(i+1),
+              'Intentas guardar:',
+              duplicateLabel(x.row),
+              '',
+              'Registro existente que lo está bloqueando:',
+              duplicateMatchDetails(x.match)
+            ].join('\n');
+          })
+          .join('\n\n--------------------\n\n');
 
         if(!check.accepted.length){
           const msg=
-            'No se guardó ninguna actividad porque ya está registrada en la cartelera.\n\n'+
-            lines;
-          if(st) st.textContent='Registro detenido: la agenda ya existe en la cartelera.';
+            'No se guardó ninguna actividad porque el sistema encontró una coincidencia en la base.\n\n'+
+            details+
+            '\n\nLa cartelera acaba de sincronizarse con el backend para que puedas localizar ese registro.';
+          if(st) st.textContent='Registro detenido: se encontró una coincidencia existente.';
           window.alert(msg);
           return;
         }
 
         const proceed=window.confirm(
-          'Se detectaron '+check.duplicates.length+' actividad(es) ya registradas y NO se volverán a guardar:\n\n'+
-          lines+
-          '\n\n¿Desea guardar únicamente las '+check.accepted.length+' actividad(es) nuevas?'
+          'Se detectaron '+check.duplicates.length+' actividad(es) ya registradas y NO se volverán a guardar.\n\n'+
+          details+
+          '\n\nLa cartelera ya fue sincronizada con el backend.\n\n'+
+          '¿Desea guardar únicamente las '+check.accepted.length+' actividad(es) nuevas?'
         );
 
         if(!proceed){
