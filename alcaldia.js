@@ -194,7 +194,15 @@
   }
 
   function responsibleOptions(selected=''){
-    const values=[...new Set(assignables.filter(Boolean))];
+    // Gabriela y Jessica forman parte permanente del personal asignable.
+    // Se agregan también aquí para que una respuesta desactualizada del backend
+    // nunca pueda hacerlas desaparecer del selector de Agenda Alcaldía.
+    const values=[...new Set([
+      ...assignables,
+      'Gabriela Castro',
+      'Jessica Calderón'
+    ].map(name=>String(name||'').trim()).filter(Boolean))];
+
     return '<option value="">Sin asignar</option>'+
       values.map(name=>`<option value="${esc(name)}"${name===selected?' selected':''}>${esc(name)}</option>`).join('');
   }
