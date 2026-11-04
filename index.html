@@ -1268,6 +1268,111 @@
     }
   }
 
+  /* Selector múltiple de responsables en Agenda Alcaldía */
+  .alcaldia-responsible-picker{
+    position:relative;
+    width:100%;
+  }
+
+  .alcaldia-responsible-picker summary{
+    list-style:none;
+    cursor:pointer;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    padding:7px 9px;
+    font-size:12px;
+    color:var(--navy);
+    min-height:34px;
+    display:flex;
+    align-items:center;
+  }
+
+  .alcaldia-responsible-picker summary::-webkit-details-marker{
+    display:none;
+  }
+
+  .alcaldia-responsible-picker summary::after{
+    content:'⌄';
+    margin-left:auto;
+    font-size:14px;
+    opacity:.7;
+  }
+
+  .alcaldia-responsible-picker[open] summary::after{
+    content:'⌃';
+  }
+
+  .alcaldia-responsible-options{
+    margin-top:5px;
+    max-height:230px;
+    overflow:auto;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(0,0,0,.12);
+    padding:5px;
+    position:absolute;
+    z-index:30;
+    right:0;
+    min-width:230px;
+    width:max-content;
+    max-width:min(320px,82vw);
+  }
+
+  .alcaldia-responsible-option{
+    display:flex!important;
+    align-items:center;
+    gap:8px;
+    padding:8px 7px;
+    border-radius:7px;
+    font-size:12px!important;
+    text-transform:none!important;
+    letter-spacing:0!important;
+    cursor:pointer;
+  }
+
+  .alcaldia-responsible-option:hover{
+    background:#f3f8f5;
+  }
+
+  .alcaldia-responsible-option input{
+    width:17px;
+    height:17px;
+    flex:0 0 auto;
+  }
+
+  .alcaldia-responsible-hint{
+    padding:7px 6px 3px;
+    font-size:10px!important;
+  }
+
+  /* Estado de carga de la Agenda del día */
+  .combined-loading{
+    min-height:120px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:1px;
+    color:var(--navy);
+    font-size:17px;
+    font-weight:900;
+    letter-spacing:.2px;
+  }
+
+  .combined-loading-dots{
+    display:inline-block;
+    min-width:20px;
+    animation:combinedLoadingBlink 1s steps(1,end) infinite;
+  }
+
+  @keyframes combinedLoadingBlink{
+    0%,24%{opacity:.25}
+    25%,49%{opacity:.5}
+    50%,74%{opacity:.75}
+    75%,100%{opacity:1}
+  }
+
   /* ===== Icono de funcionario: lleno si está asignado, contorno si no ===== */
   .person-glyph{
     width:14px;
@@ -2338,9 +2443,9 @@
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=47"></script>
+<script src="app.js?v=48"></script>
 <script src="tasa.js?v=15"></script>
-<script src="alcaldia.js?v=27"></script>
+<script src="alcaldia.js?v=28"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
