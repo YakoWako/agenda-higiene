@@ -65,6 +65,8 @@
   let selectedDate=isoToday();
   let extracted=[];
   let loadedOnce=false;
+  let loadingData=false;
+  let loadFailed=false;
   let sourceFiles=[];
   const MAX_ALCALDIA_FILES=4;
   let editingEventId='';
@@ -262,6 +264,16 @@
     }else{
       const todayBtn=q('#alcaldiaToday');
       if(todayBtn) todayBtn.textContent=selectedDate===isoToday()?'Hoy':'Regresar a hoy';
+    }
+
+    const waitingForFirstLoad=
+      (loadingData || (!loadedOnce && !loadFailed)) &&
+      !!window.AgendaApi?.isConfigured?.();
+
+    if(waitingForFirstLoad){
+      if(count) count.textContent='Cargando agenda…';
+      board.innerHTML='<div class="module-loading" role="status" aria-live="polite"><span>Cargando</span><span class="module-loading-dots">...</span></div>';
+      return;
     }
 
     const rows=dailyRows();
@@ -1180,6 +1192,10 @@
   async function loadData(silent=false){
     if(!window.AgendaApi?.isConfigured?.()) return;
 
+    loadingData=true;
+    loadFailed=false;
+    renderDaily();
+
     try{
       const data=await serverCall('getAlcaldiaData');
       events=(Array.isArray(data?.events)?data.events:[]).map(e=>({
@@ -1203,13 +1219,17 @@
         'Amparito Flores'
       ].map(x=>String(x||'').trim()).filter(Boolean))];
       loadedOnce=true;
-      renderDaily();
+      loadFailed=false;
       renderHistory();
     }catch(err){
+      loadFailed=true;
       if(!silent && q('#alcaldiaProcessState')){
         q('#alcaldiaProcessState').textContent='El módulo visual está listo; falta habilitar sus funciones en Apps Script.';
       }
       console.warn('Agenda de Alcaldía backend pendiente:',err);
+    }finally{
+      loadingData=false;
+      renderDaily();
     }
   }
 
