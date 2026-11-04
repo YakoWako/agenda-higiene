@@ -208,6 +208,11 @@
       .join(' | ');
   }
 
+  function responsibleDisplay(value){
+    const names=splitResponsibleNames(value);
+    return names.length?names.join(', '):'Sin asignar';
+  }
+
   function responsiblePickerHtml(eventId,selected=''){
     const selectedNames=splitResponsibleNames(selected);
     // Gabriela y Jessica forman parte permanente del personal asignable.
@@ -285,7 +290,7 @@
             <div class="alcaldia-assigned">
               ${window.AgendaUI?.personIconHtml?.(!!String(e.responsable||'').trim())||''}
               <span>Funcionario asignado:</span>
-              <strong class="${String(e.responsable||'').trim()?'assigned-value':'assigned-empty'}">${esc(e.responsable||'Sin asignar')}</strong>
+              <strong class="${String(e.responsable||'').trim()?'assigned-value':'assigned-empty'}">${esc(responsibleDisplay(e.responsable))}</strong>
             </div>
             ${e.observaciones?`<div class="muted" style="margin-top:8px">${esc(e.observaciones)}</div>`:''}
           </div>
@@ -324,6 +329,14 @@
         const names=checked.map(x=>x.value);
         const summary=picker.querySelector('summary');
         if(summary) summary.textContent=names.length?names.join(', '):'Sin asignar';
+
+        const card=picker.closest('.alcaldia-card');
+        const assignedLabel=card?.querySelector('.alcaldia-assigned strong');
+        if(assignedLabel){
+          assignedLabel.textContent=names.length?names.join(', '):'Sin asignar';
+          assignedLabel.classList.toggle('assigned-value',names.length>0);
+          assignedLabel.classList.toggle('assigned-empty',names.length===0);
+        }
 
         await updateTracking(eventId,{responsable:joinResponsibleNames(names)},false);
       };
@@ -365,7 +378,7 @@
             <span>📅 ${esc(fmtDate(e.fecha))}</span>
             <span>🕐 ${esc(timeRange(e))}</span>
             ${e.lugar?`<span>📍 ${esc(e.lugar)}</span>`:''}
-            ${e.responsable?`<span>👤 ${esc(e.responsable)}</span>`:''}
+            ${e.responsable?`<span>👤 ${esc(responsibleDisplay(e.responsable))}</span>`:''}
           </div>
         </div>
         <span>›</span>
