@@ -55,6 +55,8 @@
   let currentMonth = new Date();
   currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
   let loadedOnce = false;
+  let loadingEvents = false;
+  let loadFailed = false;
   let tasaRole = 'LECTURA';
   let editingId = '';
   let editingPdfUrl = '';
@@ -325,6 +327,16 @@
     }else{
       const todayBtn=q('#tasaTodayMonth');
       if(todayBtn) todayBtn.textContent=isCurrentMonth?'Hoy':'Regresar a hoy';
+    }
+
+    const waitingForFirstLoad=
+      (loadingEvents || (!loadedOnce && !loadFailed)) &&
+      !!window.AgendaApi?.isConfigured?.();
+
+    if(waitingForFirstLoad){
+      title.textContent=monthLabel(currentMonth)+' (…)';
+      cal.innerHTML='<div class="module-loading module-loading-grid" role="status" aria-live="polite"><span>Cargando</span><span class="module-loading-dots">...</span></div>';
+      return;
     }
 
     const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -605,6 +617,9 @@
 
   async function loadEvents(silent=false){
     if(!window.AgendaApi?.isConfigured?.()) return;
+    loadingEvents=true;
+    loadFailed=false;
+    renderCalendar();
     try{
       const [data,ping]=await Promise.all([
         serverCall('getTasaAseoData'),
@@ -626,14 +641,18 @@
       }));
       tasaRole=String(ping?.role||tasaRole||'LECTURA').toUpperCase();
       loadedOnce=true;
-      renderCalendar();
+      loadFailed=false;
       renderRecords();
     }catch(err){
+      loadFailed=true;
       if(!silent){
         const st=q('#tasaProcessState');
         if(st) st.textContent='El módulo visual está listo; falta habilitar sus funciones en Apps Script.';
       }
       console.warn('Tasa de aseo backend pendiente:',err);
+    }finally{
+      loadingEvents=false;
+      renderCalendar();
     }
   }
 
