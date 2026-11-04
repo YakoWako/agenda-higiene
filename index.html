@@ -1268,6 +1268,39 @@
     }
   }
 
+  /* Estado de carga inicial de cada módulo */
+  .module-loading{
+    min-height:145px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:1px;
+    width:100%;
+    color:var(--navy);
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:.2px;
+    text-align:center;
+  }
+
+  .module-loading-grid{
+    grid-column:1 / -1;
+    min-height:300px;
+  }
+
+  .module-loading-dots{
+    display:inline-block;
+    min-width:20px;
+    animation:moduleLoadingPulse 1s steps(1,end) infinite;
+  }
+
+  @keyframes moduleLoadingPulse{
+    0%,24%{opacity:.2}
+    25%,49%{opacity:.45}
+    50%,74%{opacity:.7}
+    75%,100%{opacity:1}
+  }
+
   /* Selector múltiple de responsables en Agenda Alcaldía */
   .alcaldia-responsible-picker{
     position:relative;
@@ -2443,9 +2476,9 @@
 <script src="config.js?v=10"></script>
 <script src="api.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=48"></script>
-<script src="tasa.js?v=15"></script>
-<script src="alcaldia.js?v=29"></script>
+<script src="app.js?v=49"></script>
+<script src="tasa.js?v=16"></script>
+<script src="alcaldia.js?v=30"></script>
 <script src="./pwa.js?v=4"></script>
 </body>
 </html>
