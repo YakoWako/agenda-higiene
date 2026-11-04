@@ -193,18 +193,47 @@
     return Number(m[1])*60+Number(m[2]) < now.getHours()*60+now.getMinutes();
   }
 
-  function responsibleOptions(selected=''){
+  function splitResponsibleNames(value){
+    return [...new Set(
+      String(value||'')
+        .split(/\s*(?:\||,|;)\s*/)
+        .map(x=>String(x||'').trim())
+        .filter(Boolean)
+    )].slice(0,2);
+  }
+
+  function joinResponsibleNames(names){
+    return [...new Set((names||[]).map(x=>String(x||'').trim()).filter(Boolean))]
+      .slice(0,2)
+      .join(' | ');
+  }
+
+  function responsiblePickerHtml(eventId,selected=''){
+    const selectedNames=splitResponsibleNames(selected);
     // Gabriela y Jessica forman parte permanente del personal asignable.
-    // Se agregan también aquí para que una respuesta desactualizada del backend
-    // nunca pueda hacerlas desaparecer del selector de Agenda Alcaldía.
     const values=[...new Set([
       ...assignables,
       'Gabriela Castro',
       'Jessica Calderón'
     ].map(name=>String(name||'').trim()).filter(Boolean))];
 
-    return '<option value="">Sin asignar</option>'+
-      values.map(name=>`<option value="${esc(name)}"${name===selected?' selected':''}>${esc(name)}</option>`).join('');
+    const summary=selectedNames.length
+      ? selectedNames.join(', ')
+      : 'Sin asignar';
+
+    return `<details class="alcaldia-responsible-picker" data-alcaldia-picker="${esc(eventId)}">
+      <summary>${esc(summary)}</summary>
+      <div class="alcaldia-responsible-options">
+        ${values.map(name=>`<label class="alcaldia-responsible-option">
+          <input type="checkbox"
+            data-alcaldia-responsable="${esc(eventId)}"
+            value="${esc(name)}"
+            ${selectedNames.includes(name)?'checked':''}>
+          <span>${esc(name)}</span>
+        </label>`).join('')}
+        <div class="hint alcaldia-responsible-hint">Seleccione máximo 2 funcionarios.</div>
+      </div>
+    </details>`;
   }
 
   function dailyRows(){
@@ -264,9 +293,7 @@
           <div class="alcaldia-control">
             <div>
               <label>Responsable DHS</label>
-              <select data-alcaldia-responsable="${esc(e.id)}">
-                ${responsibleOptions(String(e.responsable||''))}
-              </select>
+              ${responsiblePickerHtml(e.id,String(e.responsable||''))}
             </div>
             <label class="alcaldia-check" style="text-transform:none;letter-spacing:0;font-size:13px">
               <input type="checkbox" data-alcaldia-asistio="${esc(e.id)}" ${e.asistio?'checked':''}>
@@ -281,8 +308,25 @@
         </article>`;
     }).join('') : '<div class="empty">No hay actividades de Alcaldía registradas para este día.</div>';
 
-    board.querySelectorAll('[data-alcaldia-responsable]').forEach(sel=>{
-      sel.onchange=()=>updateTracking(sel.dataset.alcaldiaResponsable,{responsable:sel.value});
+    board.querySelectorAll('[data-alcaldia-responsable]').forEach(box=>{
+      box.onchange=async()=>{
+        const eventId=box.dataset.alcaldiaResponsable;
+        const picker=board.querySelector('[data-alcaldia-picker="'+CSS.escape(String(eventId))+'"]');
+        if(!picker) return;
+
+        const checked=[...picker.querySelectorAll('[data-alcaldia-responsable]:checked')];
+        if(checked.length>2){
+          box.checked=false;
+          window.AgendaUI?.toast?.('Puede asignar un máximo de 2 funcionarios.');
+          return;
+        }
+
+        const names=checked.map(x=>x.value);
+        const summary=picker.querySelector('summary');
+        if(summary) summary.textContent=names.length?names.join(', '):'Sin asignar';
+
+        await updateTracking(eventId,{responsable:joinResponsibleNames(names)},false);
+      };
     });
 
     board.querySelectorAll('[data-alcaldia-asistio]').forEach(chk=>{
@@ -1099,20 +1143,23 @@
     }
   }
 
-  async function updateTracking(id,patch){
+  async function updateTracking(id,patch,rerender=true){
     const e=events.find(x=>String(x.id)===String(id));
     if(!e) return;
 
     const previous={responsable:e.responsable,asistio:e.asistio};
     Object.assign(e,patch);
-    renderDaily();
+    if(rerender) renderDaily();
+    window.AgendaUI?.renderCombinedAgenda?.();
 
     try{
       const saved=await serverCall('updateAlcaldiaEvent',String(id),patch);
       if(saved&&typeof saved==='object') Object.assign(e,saved);
+      if(!rerender) window.AgendaUI?.renderCombinedAgenda?.();
     }catch(err){
       Object.assign(e,previous);
       renderDaily();
+      window.AgendaUI?.renderCombinedAgenda?.();
       window.alert('No se pudo actualizar: '+String(err?.message||err).slice(0,180));
     }
   }
