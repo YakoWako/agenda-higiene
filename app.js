@@ -67,6 +67,7 @@
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
   let dailySelectedDate = '';
   let combinedSelectedDate = '';
+  let combinedAgendaLoading = false;
   let currentModule = 'local';
   let localCurrentView = 'daily';
   let readerPreview = false;
@@ -482,6 +483,15 @@ function eventStatePill(e){
     return s||e||'Sin hora';
   }
 
+  function combinedResponsibleNames(value){
+    return [...new Set(
+      String(value||'')
+        .split(/\s*(?:\||,|;)\s*/)
+        .map(name=>canonicalStaffName(name))
+        .filter(Boolean)
+    )].slice(0,MAX_EVENT_ASSIGNEES);
+  }
+
   function normalizeCombinedMatchText(value){
     return String(value||'')
       .normalize('NFD')
@@ -764,11 +774,9 @@ function eventStatePill(e){
         time:combinedTimeRange(e.horaInicio,e.horaFin),
         place:e.lugar||'',
         detail:e.observaciones||'',
-        assignedNames:String(e.responsable||'').trim()
-          ? [canonicalStaffName(String(e.responsable).trim())]
-          : [],
-        assigned:e.responsable
-          ? canonicalStaffName(String(e.responsable).trim())
+        assignedNames:combinedResponsibleNames(e.responsable),
+        assigned:combinedResponsibleNames(e.responsable).length
+          ? combinedResponsibleNames(e.responsable).join(', ')
           : 'Sin asignar',
         llegadaAlcaldesa:String(e.llegadaAlcaldesa||'').trim(),
         past:isPastDateTime(e.fecha,e.horaFin||e.horaInicio)
@@ -893,7 +901,9 @@ function eventStatePill(e){
       date:e.fecha||'',
       time:combinedTimeRange(e.horaInicio,e.horaFin),
       place:e.lugar||'',
-      assigned:e.responsable||'Sin asignar',
+      assigned:combinedResponsibleNames(e.responsable).length
+        ? combinedResponsibleNames(e.responsable).join(', ')
+        : 'Sin asignar',
       observations:e.observaciones||'',
       locationUrl,
       meetingUrl,
@@ -990,6 +1000,11 @@ function eventStatePill(e){
     if(restoreWrap) restoreWrap.classList.toggle('hidden',!showAdminTools);
     if(restoreBtn) restoreBtn.textContent='↩ Restaurar ocultos';
     if(restoreCount) restoreCount.textContent=hiddenCount?String(hiddenCount):'';
+
+    if(combinedAgendaLoading){
+      list.innerHTML='<div class="combined-loading" role="status" aria-live="polite"><span>Cargando</span><span class="combined-loading-dots">...</span></div>';
+      return;
+    }
 
     const rows=getCombinedAgendaItems(date);
 
@@ -1091,15 +1106,24 @@ function eventStatePill(e){
 
     combinedSelectedDate=dailySelectedDate||todayISO();
     modal.classList.add('open');
-    renderCombinedAgenda();
 
     const loaders=[
       window.AgendaModules?.tasa?.ensureLoaded?.(),
       window.AgendaModules?.alcaldia?.ensureLoaded?.()
     ].filter(Boolean);
 
+    combinedAgendaLoading=loaders.length>0;
+    renderCombinedAgenda();
+
     if(loaders.length){
-      await Promise.allSettled(loaders);
+      try{
+        await Promise.allSettled(loaders);
+      }finally{
+        combinedAgendaLoading=false;
+        renderCombinedAgenda();
+      }
+    }else{
+      combinedAgendaLoading=false;
       renderCombinedAgenda();
     }
   }
