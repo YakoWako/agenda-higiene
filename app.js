@@ -66,6 +66,7 @@
 
   let state = {events:[], assignables:ASSIGNABLES_DEFAULT, registrars:REGISTRARS_DEFAULT, config:{}, currentEventId:null, role:'LECTURA'};
   let dailySelectedDate = '';
+  let localDataLoadedOnce = false;
   let combinedSelectedDate = '';
   let combinedAgendaLoading = false;
   let currentModule = 'local';
@@ -1262,6 +1263,7 @@ function eventStatePill(e){
   }
 
   async function refresh(){
+    if(!localDataLoadedOnce) renderDaily();
     try{
       const d=await serverCall('getBootstrapData');
       state.events=(d?.events||[]).map(normalizeEvent);
@@ -1280,10 +1282,21 @@ function eventStatePill(e){
       state.registrars=REGISTRARS_DEFAULT;
       state.config=d?.config||{};
       state.role=normalizeRole(d?.role||state.config?.role);
+      localDataLoadedOnce=true;
       renderAll();
       applyRoleUI();
     }
-    catch(e){console.error(e);const msg=e?.message||String(e);if(/ACCESO_DENEGADO|CLAVE_NO_CONFIGURADA|BACKEND_NO_CONFIGURADO/.test(msg)){setConnectionState('No se pudo autenticar la conexión.','bad');openSettings();}toast('No se pudo cargar la base. Revise la conexión.');}
+    catch(e){
+      localDataLoadedOnce=true;
+      renderDaily();
+      console.error(e);
+      const msg=e?.message||String(e);
+      if(/ACCESO_DENEGADO|CLAVE_NO_CONFIGURADA|BACKEND_NO_CONFIGURADO/.test(msg)){
+        setConnectionState('No se pudo autenticar la conexión.','bad');
+        openSettings();
+      }
+      toast('No se pudo cargar la base. Revise la conexión.');
+    }
   }
   function normalizeEvent(e){
     let asignacionesMeta=e?.asignacionesMeta;
@@ -2246,10 +2259,22 @@ function eventCard(e,readOnly=false,allowDelete=false){
       label==='AYER' ? '📅 Eventos de ayer' :
       `📅 Eventos del ${fmtDate(selected)}`;
 
+    const el=$('#dailyList');
+    const waitingForFirstLoad=
+      !localDataLoadedOnce &&
+      !LOCAL_MODE &&
+      !!window.AgendaApi?.isConfigured?.();
+
+    if(waitingForFirstLoad){
+      $('#dailyEventsTitle').innerHTML=
+        esc(title)+' <span style="font-weight:700;color:var(--muted)">(…)</span>';
+      el.innerHTML='<div class="module-loading" role="status" aria-live="polite"><span>Cargando</span><span class="module-loading-dots">...</span></div>';
+      return;
+    }
+
     $('#dailyEventsTitle').innerHTML=
       esc(title)+' <span style="font-weight:700;color:var(--muted)">('+rows.length+')</span>';
 
-    const el=$('#dailyList');
     el.innerHTML=rows.length
       ? rows.map(e=>eventCard(e,true)).join('')
       : '<div class="empty">No hay eventos programados para esta fecha.</div>';
